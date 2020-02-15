@@ -7,7 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		BFC3408023F4303A0086F9EE /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC3407F23F4303A0086F9EE /* main.cpp */; };
+		BFC3408023F4303A0086F9EE /* sisp01.1cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC3407F23F4303A0086F9EE /* sisp01.1cpp */; };
+		BFC3408723F434B60086F9EE /* sisp02.1cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC3408623F434B60086F9EE /* sisp02.1cpp */; };
+		BFC3408923F4EA6F0086F9EE /* sisp03.1cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC3408823F4EA6F0086F9EE /* sisp03.1cpp */; };
+		BFC3408B23F577D20086F9EE /* sisp04.1cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC3408A23F577D20086F9EE /* sisp04.1cpp */; };
+		BFC3408F23F6539D0086F9EE /* sisp05.1cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC3408E23F6539D0086F9EE /* sisp05.1cpp */; };
+		BFC3409123F7BABD0086F9EE /* sisp06.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC3409023F7BABD0086F9EE /* sisp06.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -24,7 +29,14 @@
 
 /* Begin PBXFileReference section */
 		BFC3407C23F4303A0086F9EE /* sisp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sisp; sourceTree = BUILT_PRODUCTS_DIR; };
-		BFC3407F23F4303A0086F9EE /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		BFC3407F23F4303A0086F9EE /* sisp01.1cpp */ = {isa = PBXFileReference; lastKnownFileType = text; path = sisp01.1cpp; sourceTree = "<group>"; };
+		BFC3408623F434B60086F9EE /* sisp02.1cpp */ = {isa = PBXFileReference; lastKnownFileType = text; path = sisp02.1cpp; sourceTree = "<group>"; };
+		BFC3408823F4EA6F0086F9EE /* sisp03.1cpp */ = {isa = PBXFileReference; lastKnownFileType = text; path = sisp03.1cpp; sourceTree = "<group>"; };
+		BFC3408A23F577D20086F9EE /* sisp04.1cpp */ = {isa = PBXFileReference; lastKnownFileType = text; path = sisp04.1cpp; sourceTree = "<group>"; };
+		BFC3408C23F57EA00086F9EE /* SispJIT04.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SispJIT04.h; sourceTree = "<group>"; };
+		BFC3408D23F63E050086F9EE /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
+		BFC3408E23F6539D0086F9EE /* sisp05.1cpp */ = {isa = PBXFileReference; lastKnownFileType = text; path = sisp05.1cpp; sourceTree = "<group>"; };
+		BFC3409023F7BABD0086F9EE /* sisp06.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = sisp06.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,7 +69,14 @@
 		BFC3407E23F4303A0086F9EE /* sisp */ = {
 			isa = PBXGroup;
 			children = (
-				BFC3407F23F4303A0086F9EE /* main.cpp */,
+				BFC3408C23F57EA00086F9EE /* SispJIT04.h */,
+				BFC3407F23F4303A0086F9EE /* sisp01.1cpp */,
+				BFC3408623F434B60086F9EE /* sisp02.1cpp */,
+				BFC3408823F4EA6F0086F9EE /* sisp03.1cpp */,
+				BFC3408A23F577D20086F9EE /* sisp04.1cpp */,
+				BFC3408E23F6539D0086F9EE /* sisp05.1cpp */,
+				BFC3409023F7BABD0086F9EE /* sisp06.cpp */,
+				BFC3408D23F63E050086F9EE /* build.sh */,
 			);
 			path = sisp;
 			sourceTree = "<group>";
@@ -119,7 +138,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BFC3408023F4303A0086F9EE /* main.cpp in Sources */,
+				BFC3408723F434B60086F9EE /* sisp02.1cpp in Sources */,
+				BFC3408023F4303A0086F9EE /* sisp01.1cpp in Sources */,
+				BFC3409123F7BABD0086F9EE /* sisp06.cpp in Sources */,
+				BFC3408B23F577D20086F9EE /* sisp04.1cpp in Sources */,
+				BFC3408F23F6539D0086F9EE /* sisp05.1cpp in Sources */,
+				BFC3408923F4EA6F0086F9EE /* sisp03.1cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -238,9 +262,62 @@
 		BFC3408423F4303A0086F9EE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = W7PRP2Z9TY;
 				ENABLE_HARDENED_RUNTIME = YES;
+				HEADER_SEARCH_PATHS = /usr/local/Cellar/llvm/9.0.0/include;
+				LIBRARY_SEARCH_PATHS = /usr/local/Cellar/llvm/9.0.0/lib;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-D__STDC_CONSTANT_MACROS",
+					"-D__STDC_FORMAT_MACROS",
+					"-D__STDC_LIMIT_MACROS",
+					"-Wl,-search_paths_first",
+					"-Wl,-headerpad_max_install_names",
+				);
+				OTHER_LDFLAGS = (
+					"-lLLVMX86Disassembler",
+					"-lLLVMX86AsmParser",
+					"-lLLVMX86CodeGen",
+					"-lLLVMGlobalISel",
+					"-lLLVMSelectionDAG",
+					"-lLLVMAsmPrinter",
+					"-lLLVMDebugInfoDWARF",
+					"-lLLVMCodeGen",
+					"-lLLVMScalarOpts",
+					"-lLLVMInstCombine",
+					"-lLLVMAggressiveInstCombine",
+					"-lLLVMTransformUtils",
+					"-lLLVMBitWriter",
+					"-lLLVMX86Desc",
+					"-lLLVMMCDisassembler",
+					"-lLLVMX86Utils",
+					"-lLLVMX86Info",
+					"-lLLVMMCJIT",
+					"-lLLVMExecutionEngine",
+					"-lLLVMTarget",
+					"-lLLVMAnalysis",
+					"-lLLVMProfileData",
+					"-lLLVMRuntimeDyld",
+					"-lLLVMObject",
+					"-lLLVMMCParser",
+					"-lLLVMBitReader",
+					"-lLLVMBitstreamReader",
+					"-lLLVMMC",
+					"-lLLVMDebugInfoCodeView",
+					"-lLLVMDebugInfoMSF",
+					"-lLLVMCore",
+					"-lLLVMRemarks",
+					"-lLLVMBinaryFormat",
+					"-lLLVMSupport",
+					"-lLLVMDemangle",
+					"-lz",
+					"-lcurses",
+					"-lm",
+					"-lxml2",
+					"-lLLVMOrcJIT",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -248,9 +325,62 @@
 		BFC3408523F4303A0086F9EE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = W7PRP2Z9TY;
 				ENABLE_HARDENED_RUNTIME = YES;
+				HEADER_SEARCH_PATHS = /usr/local/Cellar/llvm/9.0.0/include;
+				LIBRARY_SEARCH_PATHS = /usr/local/Cellar/llvm/9.0.0/lib;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-D__STDC_CONSTANT_MACROS",
+					"-D__STDC_FORMAT_MACROS",
+					"-D__STDC_LIMIT_MACROS",
+					"-Wl,-search_paths_first",
+					"-Wl,-headerpad_max_install_names",
+				);
+				OTHER_LDFLAGS = (
+					"-lLLVMX86Disassembler",
+					"-lLLVMX86AsmParser",
+					"-lLLVMX86CodeGen",
+					"-lLLVMGlobalISel",
+					"-lLLVMSelectionDAG",
+					"-lLLVMAsmPrinter",
+					"-lLLVMDebugInfoDWARF",
+					"-lLLVMCodeGen",
+					"-lLLVMScalarOpts",
+					"-lLLVMInstCombine",
+					"-lLLVMAggressiveInstCombine",
+					"-lLLVMTransformUtils",
+					"-lLLVMBitWriter",
+					"-lLLVMX86Desc",
+					"-lLLVMMCDisassembler",
+					"-lLLVMX86Utils",
+					"-lLLVMX86Info",
+					"-lLLVMMCJIT",
+					"-lLLVMExecutionEngine",
+					"-lLLVMTarget",
+					"-lLLVMAnalysis",
+					"-lLLVMProfileData",
+					"-lLLVMRuntimeDyld",
+					"-lLLVMObject",
+					"-lLLVMMCParser",
+					"-lLLVMBitReader",
+					"-lLLVMBitstreamReader",
+					"-lLLVMMC",
+					"-lLLVMDebugInfoCodeView",
+					"-lLLVMDebugInfoMSF",
+					"-lLLVMCore",
+					"-lLLVMRemarks",
+					"-lLLVMBinaryFormat",
+					"-lLLVMSupport",
+					"-lLLVMDemangle",
+					"-lz",
+					"-lcurses",
+					"-lm",
+					"-lxml2",
+					"-lLLVMOrcJIT",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
