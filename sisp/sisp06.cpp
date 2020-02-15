@@ -70,6 +70,8 @@ typedef enum Token {
     tok_mul = '*',
     tok_div = '/',
     tok_not = '!',
+    tok_or = '|',
+    tok_and = '&',
 
 } Token;
 
@@ -154,7 +156,7 @@ static int gettok() {
         return tok_eof;
     }
 
-    int ThisChar = LastChar;
+    char ThisChar = LastChar;
     LastChar = GetChar();
     return ThisChar;
 }
@@ -228,7 +230,7 @@ public:
 
     char getOperatorName() const {
         assert(isUnaryOp() || isBinaryOp());
-        return Name.at(0);
+        return Name[Name.size()-1];
     }
 
     unsigned getBinaryPrecedence() const { return Precedence; }
@@ -274,7 +276,10 @@ public:
 
 static Token CurTok;
 static int getNextToken() {
-    return CurTok = (Token)gettok();
+    CurTok = (Token)gettok();
+    if (CurTok == tok_or)
+        cout << "CurTok 124" << endl;
+    return CurTok;
 }
 
 static LLVMContext TheContext;
@@ -287,6 +292,7 @@ static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
 
 static unique_ptr<ExprAST> LogError(const char *Str) {
     cerr << "LogError: " << Str << endl;
+    assert(false && Str);
     return nullptr;
 }
 
@@ -419,7 +425,7 @@ Value *ForExprAST::codegen() {
 
     // https://www.cnblogs.com/ilocker/p/4892439.html
     // phi [StartValue, entry]
-    auto Variable = Builder.CreatePHI(Type::getDoubleTy(TheContext), 2, VarName.c_str());
+    auto Variable = Builder.CreatePHI(Type::getDoubleTy(TheContext), 2, VarName);
     Variable->addIncoming(StartValue, PreheaderBlock);
 
     auto OldVal = NamedValues[VarName];
@@ -439,8 +445,6 @@ Value *ForExprAST::codegen() {
 
     // fadd Variable, StepValue
     auto NextVar = Builder.CreateFAdd(Variable, StepVal, "nextval");
-    // phi [StartValue, entry], [NextVar, loop]
-    Variable->addIncoming(NextVar, LoopBlock);
 
     auto EndCond = End->codegen();
     if (!EndCond)
@@ -448,12 +452,12 @@ Value *ForExprAST::codegen() {
 
     EndCond = Builder.CreateFCmpONE(EndCond, ConstantFP::get(TheContext, APFloat(0.0)), "loopcond");
 
+    auto LoopEndBlock = Builder.GetInsertBlock();
     auto AfterBlock = BasicBlock::Create(TheContext, "afterloop", F);
     Builder.CreateCondBr(EndCond, LoopBlock, AfterBlock);
     Builder.SetInsertPoint(AfterBlock);
 
-    auto LoopEndBlock = Builder.GetInsertBlock();
-    // phi [StartValue, entry], [NextVar, loop], [NextVar, end]
+    // phi [StartValue, entry], [NextVar, end]
     Variable->addIncoming(NextVar, LoopEndBlock);
 
     if (OldVal)
@@ -480,7 +484,7 @@ Value *CallExprAST::codegen() {
     // Look up the name in the global module table.
     Function *CalleeF = getFunction(Callee);
     if (!CalleeF)
-        return LogErrorV("Unknown function referenced");
+        return LogErrorV((string("Unknown function referenced ") + Callee).c_str());
 
     // If argument mismatch error.
     if (CalleeF->arg_size() != Args.size())
@@ -593,7 +597,8 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr() {
 
       if (CurTok != tok_comma)
         return LogError("Expected ')' or ',' in argument list");
-      getNextToken();
+
+        getNextToken();
     }
   }
 
@@ -979,7 +984,7 @@ int main(int argc, const char * argv[]) {
 
     BinOpPrecedence[tok_less] = 10;
     BinOpPrecedence[tok_add] = 20;
-    BinOpPrecedence[tok_sub] = 30;
+    BinOpPrecedence[tok_sub] = 20;
     BinOpPrecedence[tok_mul] = 40;
 
     cout << "Simple List 1.0" << endl;
@@ -995,26 +1000,23 @@ int main(int argc, const char * argv[]) {
     rewind(StdFile);
     char *StdContent = (char *)malloc(sz);
     fread(StdContent, sz, sizeof(char), StdFile);
-    cout << StdContent;
+//    cout << StdContent;
 
-    TheCode = "!(LHS < RHS | LHS > RHS);";
+    FILE *TestFile = fopen("/Users/jason/mywork/sisp/sisp/test06.sisp", "r");
+    fseek(TestFile, 0L, SEEK_END);
+    sz = ftell(TestFile);
+    rewind(TestFile);
+    char *TestContent = (char *)malloc(sz);
+    fread(TestContent, sz, sizeof(char), TestFile);
 
-    string(StdContent) +
-    "def printdensity(d)\n"
-    "if d > 8 then\n"
-    "  putchard(32)\n"
-    "else if d > 4 then\n"
-    "  putchard(43)\n"
-    "else\n"
-    "  putchard(42)\n"
-    "printdensity(1): printdensity(2): printdensity(3): printdensity(4): printdensity(5): printdensity(9): putchard(10);"
-    ;
+    TheCode =
+    string(StdContent) + string(TestContent);
 
     cout << TheCode << endl;
 
     getNextToken();
 
-//    JITEnabled = true;
+    JITEnabled = true;
 
     TheJIT = make_unique<llvm::orc::SispJIT>();
     InitializeModuleAndPassManager();

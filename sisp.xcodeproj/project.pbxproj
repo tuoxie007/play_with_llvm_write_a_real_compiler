@@ -28,6 +28,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		96112D2923F806B000B282A1 /* test06.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test06.sisp; sourceTree = "<group>"; };
 		9652BF4223F7E2AF000197BB /* std.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = std.sisp; sourceTree = "<group>"; };
 		BFC3407C23F4303A0086F9EE /* sisp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sisp; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFC3407F23F4303A0086F9EE /* sisp01.1cpp */ = {isa = PBXFileReference; lastKnownFileType = text; path = sisp01.1cpp; sourceTree = "<group>"; };
@@ -78,6 +79,7 @@
 				BFC3408E23F6539D0086F9EE /* sisp05.1cpp */,
 				BFC3409023F7BABD0086F9EE /* sisp06.cpp */,
 				9652BF4223F7E2AF000197BB /* std.sisp */,
+				96112D2923F806B000B282A1 /* test06.sisp */,
 				BFC3408D23F63E050086F9EE /* build.sh */,
 			);
 			path = sisp;
