@@ -73,10 +73,13 @@ typedef enum Token {
 
 } Token;
 
+
+static map<char, int> BinOpPrecedence;
+
 static string IdentifierStr;
 static double NumVal;
-
 static string TheCode;
+
 static int GetChar() {
     static string::size_type Index = 0;
     if (Index >= TheCode.length())
@@ -210,8 +213,8 @@ class PrototypeAST {
 public:
     PrototypeAST(string &name,
                  vector<string> args,
-                 bool isOperator,
-                 unsigned precedence)
+                 bool isOperator = false,
+                 unsigned precedence = 0)
         : Name(name),
         Args(move(args)),
         IsOperator(isOperator),
@@ -225,7 +228,7 @@ public:
 
     char getOperatorName() const {
         assert(isUnaryOp() || isBinaryOp());
-        return Name.at(1);
+        return Name.at(0);
     }
 
     unsigned getBinaryPrecedence() const { return Precedence; }
@@ -254,6 +257,17 @@ public:
                unique_ptr<ExprAST> step,
                unique_ptr<ExprAST> body):
         VarName(varName), Start(move(start)), End(move(end)), Step(move(step)), Body(move(body)) {}
+
+    Value * codegen() override;
+};
+
+class UnaryExprAST : public ExprAST {
+    char Opcode;
+    unique_ptr<ExprAST> Operand;
+
+public:
+    UnaryExprAST(char opcode, unique_ptr<ExprAST> operand)
+        : Opcode(opcode), Operand(move(operand)) {}
 
     Value * codegen() override;
 };
@@ -313,8 +327,8 @@ Value *VariableExprAST::codegen() {
 }
 
 Value *BinaryExprAST::codegen() {
-    Value *L = LHS->codegen();
-    Value *R = RHS->codegen();
+    auto L = LHS->codegen();
+    auto R = RHS->codegen();
     if (!L || !R) {
         LogError("BinaryExpr codgen error.");
         return nullptr;
@@ -322,19 +336,21 @@ Value *BinaryExprAST::codegen() {
 
     switch (Op) {
         case tok_add:
-            return Builder.CreateFAdd(L, R);
+            return Builder.CreateFAdd(L, R, "addtmp");
         case tok_sub:
-            return Builder.CreateFSub(L, R);
+            return Builder.CreateFSub(L, R, "subtmp");
         case tok_mul:
-            return Builder.CreateFMul(L, R);
+            return Builder.CreateFMul(L, R, "multmp");
         case tok_less:
-            L = Builder.CreateFCmpULT(L, R);
-            return Builder.CreateUIToFP(L, Type::getDoubleTy(TheContext));
-        case tok_great:
-            L = Builder.CreateFCmpULT(R, L);
+            L = Builder.CreateFCmpULT(L, R, "cmptmp");
             return Builder.CreateUIToFP(L, Type::getDoubleTy(TheContext));
         default:
-            return LogErrorV("Invalid binary operator");
+        {
+            auto F = getFunction(string("binary") + Op);
+            assert(F && "binary operator not found!");
+            auto Ops = { L, R };
+            return Builder.CreateCall(F, Ops, "calltmp");
+        }
     }
 }
 
@@ -343,7 +359,7 @@ Value *IfExprAST::codegen() {
     if (!CondV)
         return nullptr;
 
-    CondV = Builder.CreateFCmpONE(CondV, ConstantFP::get(TheContext, APFloat(0.0)));
+    CondV = Builder.CreateFCmpONE(CondV, ConstantFP::get(TheContext, APFloat(0.0)), "ifcond");
 
     auto F = Builder.GetInsertBlock()->getParent();
 
@@ -377,7 +393,7 @@ Value *IfExprAST::codegen() {
     F->getBasicBlockList().push_back(MergeBlock);
     Builder.SetInsertPoint(MergeBlock);
 
-    auto PN = Builder.CreatePHI(Type::getDoubleTy(TheContext), 2);
+    auto PN = Builder.CreatePHI(Type::getDoubleTy(TheContext), 2, "iftmp");
 
     PN->addIncoming(ThenV, ThenBlock);
     PN->addIncoming(ElseV, ElseBlock);
@@ -422,7 +438,7 @@ Value *ForExprAST::codegen() {
     }
 
     // fadd Variable, StepValue
-    auto NextVar = Builder.CreateFAdd(Variable, StepVal);
+    auto NextVar = Builder.CreateFAdd(Variable, StepVal, "nextval");
     // phi [StartValue, entry], [NextVar, loop]
     Variable->addIncoming(NextVar, LoopBlock);
 
@@ -430,7 +446,7 @@ Value *ForExprAST::codegen() {
     if (!EndCond)
         return nullptr;
 
-    EndCond = Builder.CreateFCmpONE(EndCond, ConstantFP::get(TheContext, APFloat(0.0)));
+    EndCond = Builder.CreateFCmpONE(EndCond, ConstantFP::get(TheContext, APFloat(0.0)), "loopcond");
 
     auto AfterBlock = BasicBlock::Create(TheContext, "afterloop", F);
     Builder.CreateCondBr(EndCond, LoopBlock, AfterBlock);
@@ -446,6 +462,18 @@ Value *ForExprAST::codegen() {
         NamedValues.erase(VarName);
 
     return Constant::getNullValue(Type::getDoubleTy(TheContext));
+}
+
+Value *UnaryExprAST::codegen() {
+    auto OperandV = Operand->codegen();
+    if (!OperandV)
+        return nullptr;
+
+    auto F = getFunction(string("unary") + Opcode);
+    if (!F)
+        return LogErrorV("Unkown unary operator");
+
+    return Builder.CreateCall(F, OperandV, "unop");
 }
 
 Value *CallExprAST::codegen() {
@@ -465,7 +493,7 @@ Value *CallExprAST::codegen() {
         return nullptr;
     }
 
-    return Builder.CreateCall(CalleeF, ArgsV);
+    return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
 }
 
 Function *PrototypeAST::codegen() {
@@ -487,8 +515,11 @@ Function *FunctionAST::codegen() {
     if (!F)
         return nullptr;
 
+    if (P.isBinaryOp())
+        BinOpPrecedence[P.getOperatorName()] = P.getBinaryPrecedence();
+
     // Create a new basic block to start insertion into.
-    BasicBlock *BB = BasicBlock::Create(TheContext, "entry", F);
+    auto BB = BasicBlock::Create(TheContext, "entry", F);
     Builder.SetInsertPoint(BB);
 
     // Record the function arguments in the NamedValues map.
@@ -526,7 +557,7 @@ static unique_ptr<ExprAST> ParseNumberExpr() {
     return move(Result);
 }
 
-static unique_ptr<ExprAST> ParseParentExpr() {
+static unique_ptr<ExprAST> ParseParenExpr() {
     getNextToken();
     auto V = ParseExpr();
     if (!V)
@@ -578,8 +609,8 @@ static unique_ptr<ExprAST> ParsePrimary() {
             return ParseIdentifierExpr();
         case tok_number:
             return ParseNumberExpr();
-        case '(':
-            return ParseParentExpr();
+        case tok_left_paren:
+            return ParseParenExpr();
         case tok_if:
             return ParseIfExpr();
         case tok_for:
@@ -588,8 +619,6 @@ static unique_ptr<ExprAST> ParsePrimary() {
             return LogError("unkown token when execepting an expression");
     }
 }
-
-static map<char, int> BinOpPrecedence;
 
 static int GetTokenPrecedence() {
     if (!isascii(CurTok)) {
@@ -604,18 +633,20 @@ static int GetTokenPrecedence() {
     return TokPrec;
 }
 
+static unique_ptr<ExprAST> ParseUnary();
 static unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec, unique_ptr<ExprAST> LHS);
 
 static unique_ptr<ExprAST> ParseExpr() {
-    auto LHS = ParsePrimary();
-    if (!LHS) {
+    auto LHS = ParseUnary();
+    if (!LHS){
         return nullptr;
     }
 
     return ParseBinOpRHS(0, move(LHS));
 }
 
-static unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec, unique_ptr<ExprAST> LHS) {
+static unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
+                                         unique_ptr<ExprAST> LHS) {
     while (true) {
         int TokPrec = GetTokenPrecedence();
 
@@ -623,10 +654,10 @@ static unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec, unique_ptr<ExprAST> LHS) 
             return LHS;
         }
 
-        int BinOp = CurTok;
+        char BinOp = CurTok;
         getNextToken();
 
-        auto RHS = ParsePrimary();
+        auto RHS = ParseUnary();
         if (!RHS) {
             return nullptr;
         }
@@ -716,13 +747,61 @@ static unique_ptr<ExprAST> ParseForExpr() {
                                    move(Body));
 }
 
+static unique_ptr<ExprAST> ParseUnary() {
+    if (!isascii(CurTok) ||
+        CurTok == tok_left_paren ||
+        CurTok == tok_comma)
+        return ParsePrimary();
+
+    char Opc = CurTok;
+    getNextToken();
+
+    if (auto Operand = ParseUnary())
+        return make_unique<UnaryExprAST>(Opc, move(Operand));
+
+    return nullptr;
+}
+
 static unique_ptr<PrototypeAST> ParsePrototype() {
-    if (CurTok != tok_identifier) {
-        return LogErrorP("Expected function name in prototype");
-    }
 
     string FnName = IdentifierStr;
-    getNextToken();
+    unsigned Kind = 0;
+    unsigned BinaryPrecedence = 30;
+
+
+    switch (CurTok) {
+        case tok_identifier:
+            FnName = IdentifierStr;
+            Kind = 0;
+            getNextToken();
+            break;
+        case tok_unary:
+            getNextToken();
+            if (!isascii(CurTok))
+                return LogErrorP("Excpeted unary operator");
+            FnName = string("unary") + (char)CurTok;
+            Kind = 1;
+            getNextToken();
+            break;
+        case tok_binary:
+            getNextToken();
+            if (!isascii(CurTok))
+                return LogErrorP("Expected binary operator");
+            FnName = "binary";
+            FnName += (char)CurTok;
+            Kind = 2;
+            getNextToken();
+
+            if (CurTok == tok_number) {
+                if (NumVal < 1 || NumVal > 100)
+                    return LogErrorP("Invalid precedence: must be 1..100");
+                BinaryPrecedence = (unsigned)NumVal;
+                getNextToken();
+            }
+            break;
+        default:
+            return LogErrorP("Expected function name in prototype");
+    }
 
     if (CurTok != tok_left_paren) {
         return LogErrorP("Expected '(' in prototype");
@@ -741,7 +820,10 @@ static unique_ptr<PrototypeAST> ParsePrototype() {
 
     getNextToken();
 
-    return make_unique<PrototypeAST>(FnName, move(ArgNames));
+    if (Kind && ArgNames.size() != Kind)
+        return LogErrorP("Invalid number of operands for operator");
+
+    return make_unique<PrototypeAST>(FnName, move(ArgNames), Kind != 0, BinaryPrecedence);
 }
 
 static unique_ptr<FunctionAST> ParseDefinition() {
@@ -773,7 +855,7 @@ static unique_ptr<FunctionAST> ParseTopLevelExpr() {
 
 static void InitializeModuleAndPassManager() {
     // Open a new module.
-    TheModule = make_unique<Module>("Sisp Demo 04", TheContext);
+    TheModule = make_unique<Module>("Sisp Demo 06", TheContext);
     TheModule->setDataLayout(TheJIT->getTargetMachine().createDataLayout());
 
     // Create a new pass manager attached to it.
@@ -907,12 +989,25 @@ int main(int argc, const char * argv[]) {
 //    "extern bar();"
 //    "def baz(x) if x then foo() else bar();"
 //    ;
-    TheCode =
-    "extern putchard(char);\n"
-    "def printstar(n)\n"
-        "for i = 1, i < n, 1.0 in\n"
-            "putchard(42);  # ascii 42 = '*'\n"
-    "printstar(100);"
+    FILE *StdFile = fopen("/Users/jason/mywork/sisp/sisp/std.sisp", "r");
+    fseek(StdFile, 0L, SEEK_END);
+    unsigned long sz = ftell(StdFile);
+    rewind(StdFile);
+    char *StdContent = (char *)malloc(sz);
+    fread(StdContent, sz, sizeof(char), StdFile);
+    cout << StdContent;
+
+    TheCode = "!(LHS < RHS | LHS > RHS);";
+
+    string(StdContent) +
+    "def printdensity(d)\n"
+    "if d > 8 then\n"
+    "  putchard(32)\n"
+    "else if d > 4 then\n"
+    "  putchard(43)\n"
+    "else\n"
+    "  putchard(42)\n"
+    "printdensity(1): printdensity(2): printdensity(3): printdensity(4): printdensity(5): printdensity(9): putchard(10);"
     ;
 
     cout << TheCode << endl;

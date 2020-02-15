@@ -28,6 +28,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		9652BF4223F7E2AF000197BB /* std.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = std.sisp; sourceTree = "<group>"; };
 		BFC3407C23F4303A0086F9EE /* sisp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sisp; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFC3407F23F4303A0086F9EE /* sisp01.1cpp */ = {isa = PBXFileReference; lastKnownFileType = text; path = sisp01.1cpp; sourceTree = "<group>"; };
 		BFC3408623F434B60086F9EE /* sisp02.1cpp */ = {isa = PBXFileReference; lastKnownFileType = text; path = sisp02.1cpp; sourceTree = "<group>"; };
@@ -36,7 +37,7 @@
 		BFC3408C23F57EA00086F9EE /* SispJIT04.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SispJIT04.h; sourceTree = "<group>"; };
 		BFC3408D23F63E050086F9EE /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
 		BFC3408E23F6539D0086F9EE /* sisp05.1cpp */ = {isa = PBXFileReference; lastKnownFileType = text; path = sisp05.1cpp; sourceTree = "<group>"; };
-		BFC3409023F7BABD0086F9EE /* sisp06.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = sisp06.cpp; sourceTree = "<group>"; };
+		BFC3409023F7BABD0086F9EE /* sisp06.cpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sisp06.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +77,7 @@
 				BFC3408A23F577D20086F9EE /* sisp04.1cpp */,
 				BFC3408E23F6539D0086F9EE /* sisp05.1cpp */,
 				BFC3409023F7BABD0086F9EE /* sisp06.cpp */,
+				9652BF4223F7E2AF000197BB /* std.sisp */,
 				BFC3408D23F63E050086F9EE /* build.sh */,
 			);
 			path = sisp;
