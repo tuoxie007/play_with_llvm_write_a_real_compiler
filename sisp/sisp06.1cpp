@@ -987,7 +987,7 @@ int main(int argc, const char * argv[]) {
     BinOpPrecedence[tok_sub] = 20;
     BinOpPrecedence[tok_mul] = 40;
 
-    cout << "Simple List 1.0" << endl;
+    cout << "Simple Lisp 1.0" << endl;
 //    cout << "sisp> ";
 //    TheCode =
 //    "extern foo();"

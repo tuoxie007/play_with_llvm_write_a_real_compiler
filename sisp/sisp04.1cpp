@@ -621,7 +621,7 @@ int main(int argc, const char * argv[]) {
     BinOpPrecedence['-'] = 30;
     BinOpPrecedence['*'] = 40;
 
-    cout << "Simple List 1.0" << endl;
+    cout << "Simple Lisp 1.0" << endl;
 //    cout << "sisp> ";
     TheCode = "def foo(x) x + 2 + 1;foo(2);";
     cout << TheCode << endl;

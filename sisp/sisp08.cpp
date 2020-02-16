@@ -9,10 +9,13 @@
 #include "SispJIT04.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Passes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -85,12 +88,27 @@ static string IdentifierStr;
 static double NumVal;
 static string TheCode;
 
+struct SourceLocation {
+  int Line;
+  int Col;
+};
+static SourceLocation CurLoc;
+static SourceLocation LexLoc = {1, 0};
+
 static int GetChar() {
     static string::size_type Index = 0;
     if (Index >= TheCode.length())
         return EOF;
     char CurChar = TheCode.at(Index++);
-    cout << "getchar [" << string(1, CurChar) << "]" << endl;
+//    cout << "getchar [" << string(1, CurChar) << "]" << endl;
+
+    if (CurChar == '\n' || CurChar == '\r') {
+      LexLoc.Line++;
+      LexLoc.Col = 0;
+    } else {
+      LexLoc.Col++;
+    }
+
     return CurChar;
 }
 
@@ -167,10 +185,16 @@ static int gettok() {
 }
 
 class ExprAST {
+    SourceLocation Loc;
 public:
-    ExprAST() {}
+    ExprAST(SourceLocation Loc = CurLoc) : Loc(Loc) {}
     virtual ~ExprAST() {}
     virtual Value *codegen() = 0;
+    int getLine() const { return Loc.Line; };
+    int getCol() const { return Loc.Col; }
+    virtual raw_ostream &dump(raw_ostream &out, int ind) {
+        return out << ":" << getLine() << ":" << getCol() << "\n";
+    }
 };
 
 static unique_ptr<ExprAST> ParseExpr();
@@ -179,7 +203,7 @@ class NumberExprAST : public ExprAST {
     double Val;
 
 public:
-    NumberExprAST(double Val): Val(Val) {}
+    NumberExprAST(double val): Val(val) {}
     Value *codegen() override;
 };
 
@@ -187,7 +211,7 @@ class VariableExprAST : public ExprAST {
     string Name;
 
 public:
-    VariableExprAST(const string &name) : Name(name) {}
+    VariableExprAST(SourceLocation loc, const string &name) : ExprAST(loc), Name(name) {}
     Value *codegen() override;
     string &getName() { return Name; }
 };
@@ -209,8 +233,11 @@ class BinaryExprAST : public ExprAST {
     unique_ptr<ExprAST> LHS, RHS;
 
 public:
-    BinaryExprAST(char op, unique_ptr<ExprAST> lhs, unique_ptr<ExprAST> rhs)
-        : Op(op), LHS(move(lhs)), RHS(move(rhs)) {}
+    BinaryExprAST(SourceLocation loc,
+                  char op,
+                  unique_ptr<ExprAST> lhs,
+                  unique_ptr<ExprAST> rhs)
+        : ExprAST(loc), Op(op), LHS(move(lhs)), RHS(move(rhs)) {}
     Value *codegen() override;
 };
 
@@ -219,23 +246,29 @@ class CallExprAST : public ExprAST {
     vector<unique_ptr<ExprAST>> Args;
 
 public:
-    CallExprAST(const string &callee, vector<unique_ptr<ExprAST>> args)
-        : Callee(callee), Args(move(args)) {}
+    CallExprAST(SourceLocation loc,
+                const string &callee,
+                vector<unique_ptr<ExprAST>> args)
+        : ExprAST(loc), Callee(callee), Args(move(args)) {}
     Value *codegen() override;
 };
 
 class PrototypeAST {
+    SourceLocation Loc;
     string Name;
     vector<string> Args;
     bool IsOperator;
     unsigned Precedence;
 
 public:
-    PrototypeAST(string &name,
+    PrototypeAST(SourceLocation loc,
+                 string &name,
                  vector<string> args,
                  bool isOperator = false,
                  unsigned precedence = 0)
-        : Name(name),
+        :
+        Loc(loc),
+        Name(name),
         Args(move(args)),
         IsOperator(isOperator),
         Precedence(precedence) {}
@@ -252,16 +285,19 @@ public:
     }
 
     unsigned getBinaryPrecedence() const { return Precedence; }
+    int getLine() const { return Loc.Line; };
+    int getCol() const { return Loc.Col; }
 };
 
 class IfExprAST : public ExprAST {
     unique_ptr<ExprAST> Cond, Then, Else;
 
 public:
-    IfExprAST(unique_ptr<ExprAST> cond,
+    IfExprAST(SourceLocation loc,
+              unique_ptr<ExprAST> cond,
               unique_ptr<ExprAST> then,
               unique_ptr<ExprAST> elseE)
-        : Cond(move(cond)), Then(move(then)), Else(move(elseE)) {}
+        : ExprAST(loc), Cond(move(cond)), Then(move(then)), Else(move(elseE)) {}
 
     Value * codegen() override;
 };
@@ -294,10 +330,7 @@ public:
 
 static Token CurTok;
 static int getNextToken() {
-    CurTok = (Token)gettok();
-    if (CurTok == tok_or)
-        cout << "CurTok 124" << endl;
-    return CurTok;
+    return CurTok = (Token)gettok();
 }
 
 static LLVMContext TheContext;
@@ -307,6 +340,63 @@ static map<string, AllocaInst *> NamedValues;
 static std::unique_ptr<legacy::FunctionPassManager> TheFPM;
 static std::unique_ptr<llvm::orc::SispJIT> TheJIT;
 static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
+static std::unique_ptr<DIBuilder> DBuilder;
+
+struct DebugInfo {
+    DICompileUnit *TheCU;
+    DIType *DblTy;
+    std::vector<DIScope *> LexicalBlocks;
+
+    DIType *getDoubleTy();
+    void emitLocation(ExprAST *AST);
+} SispDbgInfo;
+
+vector<DIScope *> LexicalBlocks;
+
+//static int advance() {
+//  int LastChar = getchar();
+//
+//  if (LastChar == '\n' || LastChar == '\r') {
+//    LexLoc.Line++;
+//    LexLoc.Col = 0;
+//  } else
+//    LexLoc.Col++;
+//  return LastChar;
+//}
+
+DIType *DebugInfo::getDoubleTy() {
+    if (DblTy)
+        return DblTy;
+
+    DblTy = DBuilder->createBasicType("double", 64, dwarf::DW_ATE_float);
+    return DblTy;
+}
+
+void DebugInfo::emitLocation(ExprAST *AST) {
+    if (!AST)
+        return Builder.SetCurrentDebugLocation(DebugLoc());
+
+    DIScope *Scope;
+    if (LexicalBlocks.empty())
+        Scope = TheCU;
+    else
+        Scope = LexicalBlocks.back();
+
+    Builder.SetCurrentDebugLocation(DebugLoc::get(AST->getLine(), AST->getCol(), Scope));
+}
+
+static DISubroutineType *CreateFunctionType(unsigned long NumArgs, DIFile *Unit) {
+  SmallVector<Metadata *, 8> EltTys;
+  DIType *DblTy = SispDbgInfo.getDoubleTy();
+
+  // Add the result type.
+  EltTys.push_back(DblTy);
+
+  for (unsigned long i = 0, e = NumArgs; i != e; ++i)
+      EltTys.push_back(DblTy);
+
+  return DBuilder->createSubroutineType(DBuilder->getOrCreateTypeArray(EltTys));
+}
 
 static unique_ptr<ExprAST> LogError(const char *Str) {
     cerr << "LogError: " << Str << endl;
@@ -347,6 +437,7 @@ static Function *getFunction(std::string Name) {
 }
 
 Value *NumberExprAST::codegen() {
+    SispDbgInfo.emitLocation(this);
     return ConstantFP::get(TheContext, APFloat(Val));
 }
 
@@ -355,10 +446,13 @@ Value *VariableExprAST::codegen() {
     if (!V)
         LogError("Unkown variable name");
 
+    SispDbgInfo.emitLocation(this);
     return Builder.CreateLoad(V, Name.c_str());
 }
 
 Value *BinaryExprAST::codegen() {
+    SispDbgInfo.emitLocation(this);
+
     if (Op == '=') {
         auto LHSE = static_cast<VariableExprAST *>(LHS.get());
         if (!LHSE)
@@ -404,6 +498,7 @@ Value *BinaryExprAST::codegen() {
 }
 
 Value *IfExprAST::codegen() {
+    SispDbgInfo.emitLocation(this);
     auto CondV = Cond->codegen();
     if (!CondV)
         return nullptr;
@@ -458,6 +553,8 @@ Value *ForExprAST::codegen() {
     auto F = Builder.GetInsertBlock()->getParent();
 
     auto Alloca = CreateEntryBlockAlloca(F, VarName);
+
+    SispDbgInfo.emitLocation(this);
 
     auto StartVal = Start->codegen();
     if (!Start)
@@ -530,6 +627,7 @@ Value *VarExprAST::codegen() {
         NamedValues[VarName] = Alloca;
     }
 
+    SispDbgInfo.emitLocation(this);
     auto BodyVal = Body->codegen();
     if (!BodyVal)
         return nullptr;
@@ -550,10 +648,12 @@ Value *UnaryExprAST::codegen() {
     if (!F)
         return LogErrorV("Unkown unary operator");
 
+    SispDbgInfo.emitLocation(this);
     return Builder.CreateCall(F, OperandV, "unop");
 }
 
 Value *CallExprAST::codegen() {
+    SispDbgInfo.emitLocation(this);
     // Look up the name in the global module table.
     Function *CalleeF = getFunction(Callee);
     if (!CalleeF)
@@ -599,17 +699,59 @@ Function *FunctionAST::codegen() {
     auto BB = BasicBlock::Create(TheContext, "entry", F);
     Builder.SetInsertPoint(BB);
 
+    // Create a subprogram DIE for this function.
+    DIFile *Unit = DBuilder->createFile(SispDbgInfo.TheCU->getFilename(),
+                                        SispDbgInfo.TheCU->getDirectory());
+    DIScope *FContext = Unit;
+    unsigned LineNo = P.getLine();
+    unsigned ScopeLine = LineNo;
+    DISubprogram *SP =
+    DBuilder->createFunction(FContext,
+                             P.getName(),
+                             StringRef(),
+                             Unit,
+                             LineNo,
+                             CreateFunctionType(F->arg_size(), Unit),
+                             ScopeLine,
+                             DINode::FlagPrototyped,
+                             DISubprogram::SPFlagDefinition);
+    F->setSubprogram(SP);
+
+    // Push the current scope.
+    SispDbgInfo.LexicalBlocks.push_back(SP);
+
+    // Unset the location for the prologue emission (leading instructions with no
+    // location in a function are considered part of the prologue and the debugger
+    // will run past them when breaking on a function)
+    SispDbgInfo.emitLocation(nullptr);
+
     // Record the function arguments in the NamedValues map.
     NamedValues.clear();
+
+    unsigned ArgIdx = 0;
     for (auto &Arg : F->args()) {
         auto Alloca = CreateEntryBlockAlloca(F, Arg.getName());
+
+        // Create a debug descriptor for the variable.
+        DILocalVariable *D = DBuilder->createParameterVariable(
+            SP, Arg.getName(), ++ArgIdx, Unit, LineNo, SispDbgInfo.getDoubleTy(),
+            true);
+
+        DBuilder->insertDeclare(Alloca, D, DBuilder->createExpression(),
+                                DebugLoc::get(LineNo, 0, SP),
+                                Builder.GetInsertBlock());
+
         Builder.CreateStore(&Arg, Alloca);
         NamedValues[Arg.getName()] = Alloca;
     }
 
+    SispDbgInfo.emitLocation(Body.get());
+
     if (Value *RetVal = Body->codegen()) {
         // Finish off the function.
         Builder.CreateRet(RetVal);
+
+        SispDbgInfo.LexicalBlocks.pop_back();
 
         // Validate the generated code, checking for consistency.
         verifyFunction(*F);
@@ -624,6 +766,12 @@ Function *FunctionAST::codegen() {
 
     // Error reading body, remove function.
     F->eraseFromParent();
+
+    if (P.isBinaryOp())
+        BinOpPrecedence.erase(Proto->getOperatorName());
+
+    SispDbgInfo.LexicalBlocks.pop_back();
+
     return nullptr;
 }
 
@@ -651,37 +799,39 @@ static unique_ptr<ExprAST> ParseParenExpr() {
 }
 
 static std::unique_ptr<ExprAST> ParseIdentifierExpr() {
-  std::string IdName = IdentifierStr;
+    std::string IdName = IdentifierStr;
 
-  getNextToken(); // eat identifier.
+    SourceLocation LitLoc = CurLoc;
 
-  if (CurTok != tok_left_paren) // Simple variable ref.
-    return make_unique<VariableExprAST>(IdName);
+    getNextToken(); // eat identifier.
 
-  // Call.
-  getNextToken(); // eat (
-  std::vector<std::unique_ptr<ExprAST>> Args;
-  if (CurTok != tok_right_paren) {
-    while (true) {
-      if (auto Arg = ParseExpr())
-        Args.push_back(std::move(Arg));
-      else
-        return nullptr;
+    if (CurTok != tok_left_paren) // Simple variable ref.
+        return make_unique<VariableExprAST>(LitLoc, IdName);
 
-      if (CurTok == tok_right_paren)
-        break;
+    // Call.
+    getNextToken(); // eat (
+    std::vector<std::unique_ptr<ExprAST>> Args;
+    if (CurTok != tok_right_paren) {
+        while (true) {
+            if (auto Arg = ParseExpr())
+                Args.push_back(std::move(Arg));
+            else
+                return nullptr;
 
-      if (CurTok != tok_comma)
-        return LogError("Expected ')' or ',' in argument list");
+            if (CurTok == tok_right_paren)
+                break;
 
-        getNextToken();
+            if (CurTok != tok_comma)
+                return LogError("Expected ')' or ',' in argument list");
+
+                getNextToken();
+        }
     }
-  }
 
-  // Eat the ')'.
-  getNextToken();
+    // Eat the ')'.
+    getNextToken();
 
-  return make_unique<CallExprAST>(IdName, std::move(Args));
+    return make_unique<CallExprAST>(CurLoc, IdName, std::move(Args));
 }
 
 static unique_ptr<ExprAST> ParseVarExpr();
@@ -740,6 +890,7 @@ static unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
         }
 
         char BinOp = CurTok;
+        SourceLocation BinLoc = CurLoc;
         getNextToken();
 
         auto RHS = ParseUnary();
@@ -755,11 +906,13 @@ static unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
             }
         }
 
-        LHS = make_unique<BinaryExprAST>(BinOp, move(LHS), move(RHS));
+        LHS = make_unique<BinaryExprAST>(BinLoc, BinOp, move(LHS), move(RHS));
     }
 }
 
 static unique_ptr<ExprAST> ParseIfExpr() {
+    SourceLocation IfLoc = CurLoc;
+
     getNextToken();
 
     auto Cond = ParseExpr();
@@ -782,7 +935,7 @@ static unique_ptr<ExprAST> ParseIfExpr() {
     if (!Else)
         return nullptr;
 
-    return make_unique<IfExprAST>(move(Cond), move(Then), move(Else));
+    return make_unique<IfExprAST>(IfLoc, move(Cond), move(Then), move(Else));
 }
 
 static unique_ptr<ExprAST> ParseForExpr() {
@@ -891,10 +1044,10 @@ static unique_ptr<ExprAST> ParseVarExpr() {
 
 static unique_ptr<PrototypeAST> ParsePrototype() {
 
+    SourceLocation FnLoc = CurLoc;
     string FnName = IdentifierStr;
     unsigned Kind = 0;
     unsigned BinaryPrecedence = 30;
-
 
     switch (CurTok) {
         case tok_identifier:
@@ -950,7 +1103,7 @@ static unique_ptr<PrototypeAST> ParsePrototype() {
     if (Kind && ArgNames.size() != Kind)
         return LogErrorP("Invalid number of operands for operator");
 
-    return make_unique<PrototypeAST>(FnName, move(ArgNames), Kind != 0, BinaryPrecedence);
+    return make_unique<PrototypeAST>(FnLoc, FnName, move(ArgNames), Kind != 0, BinaryPrecedence);
 }
 
 static unique_ptr<FunctionAST> ParseDefinition() {
@@ -972,9 +1125,11 @@ static unique_ptr<PrototypeAST> ParseExtern() {
 }
 
 static unique_ptr<FunctionAST> ParseTopLevelExpr() {
+    SourceLocation FnLoc = CurLoc;
     if (auto E = ParseExpr()) {
-        string Name = "__anon_expr";
-        auto Proto = make_unique<PrototypeAST>(Name, vector<string>());
+//        string Name = "__anon_expr";
+        string Name = "main";
+        auto Proto = make_unique<PrototypeAST>(FnLoc, Name, vector<string>());
         return make_unique<FunctionAST>(move(Proto), move(E));
     }
     return nullptr;
@@ -987,7 +1142,6 @@ static void InitializeModuleAndPassManager() {
 
     // Create a new pass manager attached to it.
     TheFPM = make_unique<legacy::FunctionPassManager>(TheModule.get());
-
 
     TheFPM->add(createPromoteMemoryToRegisterPass());
 
@@ -1006,9 +1160,9 @@ static void InitializeModuleAndPassManager() {
 static void HandleDefinition() {
     if (auto FnAST = ParseDefinition()) {
         if (auto *FnIR = FnAST->codegen()) {
-            cout << "Read function definition:";
-            FnIR->print(outs());
-            cout << endl;
+//            cout << "Read function definition:";
+//            FnIR->print(outs());
+//            cout << endl;
             if (JITEnabled) {
                 TheJIT->addModule(std::move(TheModule));
                 InitializeModuleAndPassManager();
@@ -1023,9 +1177,9 @@ static void HandleDefinition() {
 static void HandleExtern() {
     if (auto ProtoAST = ParseExtern()) {
         if (auto *FnIR = ProtoAST->codegen()) {
-            cout << "Read extern: ";
-            FnIR->print(outs());
-            cout << endl;
+//            cout << "Read extern: ";
+//            FnIR->print(outs());
+//            cout << endl;
             FunctionProtos[ProtoAST->getName()] = std::move(ProtoAST);
         }
     } else {
@@ -1092,13 +1246,14 @@ static int MainLoop() {
 #endif
 
 extern "C" DLLEXPORT double putchard(double X) {
-    cout << "putchar [" << string(1, (char)X) << "]" << endl;
+    cout << (char)X;
+//    cout << "putchar [" << string(1, (char)X) << "]" << endl;
     return 0;
 }
 
 extern "C" DLLEXPORT double printd(double X) {
-    cout << to_string(X) << endl;
-    cout << "print [" << to_string(X) << "]" << endl;
+    cout << to_string(X);
+//    cout << "print [" << to_string(X) << "]" << endl;
     return 0;
 }
 
@@ -1114,7 +1269,7 @@ int main(int argc, const char * argv[]) {
     BinOpPrecedence[tok_sub] = 20;
     BinOpPrecedence[tok_mul] = 40;
 
-    cout << "Simple List 1.0" << endl;
+//    cout << "Simple Lisp 1.0" << endl;
 //    cout << "sisp> ";
 //    TheCode =
 //    "extern foo();"
@@ -1139,7 +1294,7 @@ int main(int argc, const char * argv[]) {
     TheCode =
     string(StdContent) + string(TestContent);
 
-    cout << TheCode << endl;
+//    cout << TheCode << endl;
 
     getNextToken();
 
@@ -1148,7 +1303,16 @@ int main(int argc, const char * argv[]) {
     TheJIT = make_unique<llvm::orc::SispJIT>();
     InitializeModuleAndPassManager();
 
+    TheModule->addModuleFlag(Module::Warning, "Debug Info Version", DEBUG_METADATA_VERSION);
+    if (Triple(sys::getProcessTriple()).isOSDarwin())
+        TheModule->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
+
+    DBuilder = make_unique<DIBuilder>(*TheModule);
+    SispDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile("ch08.sisp", "."), "Sisp Compiler", 0, "", 0);
+
     MainLoop();
+
+    DBuilder->finalize();
 
     cout << "### Module Define ###" << endl;
     TheModule->print(outs(), nullptr);
@@ -1193,7 +1357,7 @@ int main(int argc, const char * argv[]) {
     Pass.run(*TheModule);
     dest.flush();
 
-    cout << "Wrote " << Filename << endl;
+//    cout << "Wrote " << Filename << endl;
 
     return 0;
 }
