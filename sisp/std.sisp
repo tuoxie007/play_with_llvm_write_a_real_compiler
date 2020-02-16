@@ -38,3 +38,5 @@ def binary = 9 (LHS RHS)
 # Define ':' for sequencing: as a low-precedence operator that ignores operands
 # and just returns the RHS.
 def binary : 1 (x y) y;
+
+extern putchard(char);
