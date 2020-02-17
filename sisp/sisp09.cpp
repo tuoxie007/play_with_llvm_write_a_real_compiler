@@ -70,6 +70,8 @@ typedef enum Token {
     tok_hash = '#',
     tok_dot = '.',
     tok_space = ' ',
+    tok_left_bracket = '{',
+    tok_right_bracket = '}',
 
     tok_add = '+',
     tok_sub = '-',
@@ -89,8 +91,8 @@ static double NumVal;
 static string TheCode;
 
 struct SourceLocation {
-  int Line;
-  int Col;
+    int Line;
+    int Col;
 };
 static SourceLocation CurLoc;
 static SourceLocation LexLoc = {1, 0};
@@ -100,13 +102,13 @@ static int GetChar() {
     if (Index >= TheCode.length())
         return EOF;
     char CurChar = TheCode.at(Index++);
-//    cout << "getchar [" << string(1, CurChar) << "]" << endl;
+    cout << "getchar [" << string(1, CurChar) << "]" << endl;
 
     if (CurChar == '\n' || CurChar == '\r') {
-      LexLoc.Line++;
-      LexLoc.Col = 0;
+        LexLoc.Line++;
+        LexLoc.Col = 0;
     } else {
-      LexLoc.Col++;
+        LexLoc.Col++;
     }
 
     return CurChar;
@@ -198,6 +200,14 @@ public:
 };
 
 static unique_ptr<ExprAST> ParseExpr();
+
+class CompoundExprAST : public ExprAST {
+    vector<unique_ptr<ExprAST>> Exprs;
+
+public:
+    CompoundExprAST(vector<unique_ptr<ExprAST>> exprs): Exprs(move(exprs)) {}
+    Value *codegen() override;
+};
 
 class NumberExprAST : public ExprAST {
     double Val;
@@ -436,6 +446,10 @@ static Function *getFunction(std::string Name) {
     return nullptr;
 }
 
+const std::string& FunctionAST::getName() const {
+    return Proto->getName();
+}
+
 Value *NumberExprAST::codegen() {
     SispDbgInfo.emitLocation(this);
     return ConstantFP::get(TheContext, APFloat(Val));
@@ -650,6 +664,14 @@ Value *UnaryExprAST::codegen() {
 
     SispDbgInfo.emitLocation(this);
     return Builder.CreateCall(F, OperandV, "unop");
+}
+
+Value *CompoundExprAST::codegen() {
+    for (auto Expr = Exprs.begin(); Expr != Exprs.end(); Expr ++) {
+        if (!(*Expr)->codegen())
+            return nullptr;
+    }
+    return Constant::getNullValue(Type::getDoubleTy(TheContext));
 }
 
 Value *CallExprAST::codegen() {
@@ -872,6 +894,26 @@ static unique_ptr<ExprAST> ParseUnary();
 static unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec, unique_ptr<ExprAST> LHS);
 
 static unique_ptr<ExprAST> ParseExpr() {
+    if (CurTok == tok_left_bracket) {
+
+        vector<unique_ptr<ExprAST>> Exprs;
+        while (true) {
+            getNextToken();
+
+            if (CurTok == tok_right_bracket) {
+                getNextToken();
+                break;
+            }
+            auto Expr = ParseExpr();
+            if (!Expr)
+                return nullptr;
+
+            Exprs.push_back(move(Expr));
+        }
+
+        return make_unique<CompoundExprAST>(move(Exprs));
+    }
+
     auto LHS = ParseUnary();
     if (!LHS){
         return nullptr;
@@ -1127,8 +1169,8 @@ static unique_ptr<PrototypeAST> ParseExtern() {
 static unique_ptr<FunctionAST> ParseTopLevelExpr() {
     SourceLocation FnLoc = CurLoc;
     if (auto E = ParseExpr()) {
-//        string Name = "__anon_expr";
-        string Name = "main";
+        string Name = "__anon_expr";
+//        string Name = "main";
         auto Proto = make_unique<PrototypeAST>(FnLoc, Name, vector<string>());
         return make_unique<FunctionAST>(move(Proto), move(E));
     }
@@ -1159,6 +1201,7 @@ static void InitializeModuleAndPassManager() {
 
 static void HandleDefinition() {
     if (auto FnAST = ParseDefinition()) {
+        cout << "FnAST: " << FnAST->getName() << endl;
         if (auto *FnIR = FnAST->codegen()) {
 //            cout << "Read function definition:";
 //            FnIR->print(outs());
@@ -1291,14 +1334,13 @@ int main(int argc, const char * argv[]) {
     char *TestContent = (char *)malloc(sz);
     fread(TestContent, sz, sizeof(char), TestFile);
 
-    TheCode =
-    string(StdContent) + string(TestContent);
+    TheCode = string(TestContent);
 
 //    cout << TheCode << endl;
 
     getNextToken();
 
-//    JITEnabled = true;
+    JITEnabled = true;
 
     TheJIT = make_unique<llvm::orc::SispJIT>();
     InitializeModuleAndPassManager();
@@ -1308,7 +1350,7 @@ int main(int argc, const char * argv[]) {
         TheModule->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
 
     DBuilder = make_unique<DIBuilder>(*TheModule);
-    SispDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile("ch08.sisp", "."), "Sisp Compiler", 0, "", 0);
+    SispDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile("ch09.sisp", "."), "Sisp Compiler", 0, "", 0);
 
     MainLoop();
 
