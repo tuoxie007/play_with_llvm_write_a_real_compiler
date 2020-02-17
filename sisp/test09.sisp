@@ -4,6 +4,6 @@ def testcompound() {
     putchard(124);
     putchard(125);
     putchard(126);
-};
+}
 
 testcompound();

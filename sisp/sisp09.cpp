@@ -901,7 +901,6 @@ static unique_ptr<ExprAST> ParseExpr() {
             getNextToken();
 
             if (CurTok == tok_right_bracket) {
-                getNextToken();
                 break;
             }
             auto Expr = ParseExpr();
@@ -1266,6 +1265,7 @@ static int MainLoop() {
             case tok_eof:
                 return 0;
             case tok_colon:
+            case tok_right_bracket:
                 getNextToken();
                 break;
             case tok_def:
