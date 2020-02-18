@@ -1,0 +1,23 @@
+def binary> 10 (LHS RHS)
+    RHS < LHS;
+
+extern putchard(char);
+extern printd(char);
+
+def testvar() {
+    var x;
+    x = 89;
+    x = x + 1;
+    printd(x);
+
+    for (i = 3; i < 5)
+    {
+        if (i > 3) then {
+            putchard(10);
+            printd(i);
+        } else {
+        }
+    }
+}
+
+testvar();
