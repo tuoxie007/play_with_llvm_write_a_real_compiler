@@ -7,7 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		BFC34C1C23FAAABF0086F9EE /* sisp10.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC34C1B23FAAABF0086F9EE /* sisp10.cpp */; };
+		BFC34C2123FD22930086F9EE /* Lexer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC34C1F23FD22930086F9EE /* Lexer.cpp */; };
+		BFC34C2423FD22B90086F9EE /* Parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC34C2223FD22B90086F9EE /* Parser.cpp */; };
+		BFC34C2723FD22D50086F9EE /* Codegen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC34C2523FD22D50086F9EE /* Codegen.cpp */; };
+		BFC34C2923FD23120086F9EE /* Driver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC34C2823FD23120086F9EE /* Driver.cpp */; };
+		BFC34C4523FE8C0D0086F9EE /* cli.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC34C4423FE8C0D0086F9EE /* cli.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -24,7 +28,7 @@
 
 /* Begin PBXFileReference section */
 		BFC3407C23F4303A0086F9EE /* sisp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sisp; sourceTree = BUILT_PRODUCTS_DIR; };
-		BFC3408C23F57EA00086F9EE /* SispJIT04.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SispJIT04.h; sourceTree = "<group>"; };
+		BFC3408C23F57EA00086F9EE /* SispJIT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SispJIT.h; sourceTree = "<group>"; };
 		BFC3408D23F63E050086F9EE /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
 		BFC3409823F911330086F9EE /* __sso_allocator */ = {isa = PBXFileReference; lastKnownFileType = text; path = __sso_allocator; sourceTree = "<group>"; };
 		BFC3409923F911330086F9EE /* bitset */ = {isa = PBXFileReference; lastKnownFileType = text; path = bitset; sourceTree = "<group>"; };
@@ -2807,8 +2811,28 @@
 		BFC34C1123F911430086F9EE /* Analysis.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Analysis.h; sourceTree = "<group>"; };
 		BFC34C1223F911430086F9EE /* lto.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lto.h; sourceTree = "<group>"; };
 		BFC34C1323F911430086F9EE /* Support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Support.h; sourceTree = "<group>"; };
-		BFC34C1B23FAAABF0086F9EE /* sisp10.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = sisp10.cpp; sourceTree = "<group>"; };
 		BFC34C1D23FAC2EC0086F9EE /* test10.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test10.sisp; sourceTree = "<group>"; };
+		BFC34C1F23FD22930086F9EE /* Lexer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Lexer.cpp; sourceTree = "<group>"; };
+		BFC34C2023FD22930086F9EE /* Lexer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Lexer.hpp; sourceTree = "<group>"; };
+		BFC34C2223FD22B90086F9EE /* Parser.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Parser.cpp; sourceTree = "<group>"; };
+		BFC34C2323FD22B90086F9EE /* Parser.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Parser.hpp; sourceTree = "<group>"; };
+		BFC34C2523FD22D50086F9EE /* Codegen.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Codegen.cpp; sourceTree = "<group>"; };
+		BFC34C2623FD22D50086F9EE /* Codegen.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Codegen.hpp; sourceTree = "<group>"; };
+		BFC34C2823FD23120086F9EE /* Driver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Driver.cpp; sourceTree = "<group>"; };
+		BFC34C2D23FD23EC0086F9EE /* test_def.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_def.sisp; sourceTree = "<group>"; };
+		BFC34C2E23FD254D0086F9EE /* test_extern.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_extern.sisp; sourceTree = "<group>"; };
+		BFC34C2F23FD25B70086F9EE /* test_constant.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_constant.sisp; sourceTree = "<group>"; };
+		BFC34C3023FD25F50086F9EE /* test_math.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_math.sisp; sourceTree = "<group>"; };
+		BFC34C3123FD262F0086F9EE /* test_call.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_call.sisp; sourceTree = "<group>"; };
+		BFC34C3223FD26930086F9EE /* test_ifcond.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_ifcond.sisp; sourceTree = "<group>"; };
+		BFC34C3323FD276C0086F9EE /* test_forloop.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_forloop.sisp; sourceTree = "<group>"; };
+		BFC34C3423FD27B60086F9EE /* test_var.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_var.sisp; sourceTree = "<group>"; };
+		BFC34C3523FD27FB0086F9EE /* test_var_init.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_var_init.sisp; sourceTree = "<group>"; };
+		BFC34C3623FD28400086F9EE /* test_var_assign.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_var_assign.sisp; sourceTree = "<group>"; };
+		BFC34C3723FD295C0086F9EE /* test_formula.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_formula.sisp; sourceTree = "<group>"; };
+		BFC34C3823FD3A7D0086F9EE /* test_compound.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_compound.sisp; sourceTree = "<group>"; };
+		BFC34C4423FE8C0D0086F9EE /* cli.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = cli.cpp; sourceTree = "<group>"; };
+		BFC34C4623FE90EB0086F9EE /* Driver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Driver.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2842,10 +2866,11 @@
 		BFC3407E23F4303A0086F9EE /* sisp */ = {
 			isa = PBXGroup;
 			children = (
-				BFC3408C23F57EA00086F9EE /* SispJIT04.h */,
+				BFC3408C23F57EA00086F9EE /* SispJIT.h */,
 				BFC34C1D23FAC2EC0086F9EE /* test10.sisp */,
-				BFC34C1B23FAAABF0086F9EE /* sisp10.cpp */,
+				BFC34C1E23FD223A0086F9EE /* sisp11 */,
 				BFC3408D23F63E050086F9EE /* build.sh */,
+				BFC34C4423FE8C0D0086F9EE /* cli.cpp */,
 			);
 			path = sisp;
 			sourceTree = "<group>";
@@ -6927,6 +6952,41 @@
 			path = Transforms;
 			sourceTree = "<group>";
 		};
+		BFC34C1E23FD223A0086F9EE /* sisp11 */ = {
+			isa = PBXGroup;
+			children = (
+				BFC34C2C23FD234E0086F9EE /* tests */,
+				BFC34C2023FD22930086F9EE /* Lexer.hpp */,
+				BFC34C1F23FD22930086F9EE /* Lexer.cpp */,
+				BFC34C2323FD22B90086F9EE /* Parser.hpp */,
+				BFC34C2223FD22B90086F9EE /* Parser.cpp */,
+				BFC34C2623FD22D50086F9EE /* Codegen.hpp */,
+				BFC34C2523FD22D50086F9EE /* Codegen.cpp */,
+				BFC34C4623FE90EB0086F9EE /* Driver.hpp */,
+				BFC34C2823FD23120086F9EE /* Driver.cpp */,
+			);
+			path = sisp11;
+			sourceTree = "<group>";
+		};
+		BFC34C2C23FD234E0086F9EE /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				BFC34C2D23FD23EC0086F9EE /* test_def.sisp */,
+				BFC34C2E23FD254D0086F9EE /* test_extern.sisp */,
+				BFC34C2F23FD25B70086F9EE /* test_constant.sisp */,
+				BFC34C3023FD25F50086F9EE /* test_math.sisp */,
+				BFC34C3123FD262F0086F9EE /* test_call.sisp */,
+				BFC34C3423FD27B60086F9EE /* test_var.sisp */,
+				BFC34C3523FD27FB0086F9EE /* test_var_init.sisp */,
+				BFC34C3623FD28400086F9EE /* test_var_assign.sisp */,
+				BFC34C3223FD26930086F9EE /* test_ifcond.sisp */,
+				BFC34C3323FD276C0086F9EE /* test_forloop.sisp */,
+				BFC34C3723FD295C0086F9EE /* test_formula.sisp */,
+				BFC34C3823FD3A7D0086F9EE /* test_compound.sisp */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -6984,7 +7044,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BFC34C1C23FAAABF0086F9EE /* sisp10.cpp in Sources */,
+				BFC34C2123FD22930086F9EE /* Lexer.cpp in Sources */,
+				BFC34C2723FD22D50086F9EE /* Codegen.cpp in Sources */,
+				BFC34C2423FD22B90086F9EE /* Parser.cpp in Sources */,
+				BFC34C4523FE8C0D0086F9EE /* cli.cpp in Sources */,
+				BFC34C2923FD23120086F9EE /* Driver.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

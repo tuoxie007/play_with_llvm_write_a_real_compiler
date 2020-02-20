@@ -6,7 +6,7 @@
 //  Copyright © 2020 Beibei Inc. All rights reserved.
 //
 
-#include "SispJIT04.h"
+#include "SispJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -429,7 +429,6 @@ static int getNextToken() {
 static LLVMContext TheContext;
 static IRBuilder<> Builder(TheContext);
 static unique_ptr<Module> TheModule;
-static map<string, AllocaInst *> NamedValues;
 static std::unique_ptr<legacy::FunctionPassManager> TheFPM;
 static std::unique_ptr<llvm::orc::SispJIT> TheJIT;
 static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
@@ -444,18 +443,7 @@ struct DebugInfo {
     void emitLocation(ExprAST *AST);
 } SispDbgInfo;
 
-vector<DIScope *> LexicalBlocks;
-
-//static int advance() {
-//  int LastChar = getchar();
-//
-//  if (LastChar == '\n' || LastChar == '\r') {
-//    LexLoc.Line++;
-//    LexLoc.Col = 0;
-//  } else
-//    LexLoc.Col++;
-//  return LastChar;
-//}
+static vector<DIScope *> LexicalBlocks;
 
 DIType *DebugInfo::getDoubleTy() {
     if (DblTy)
@@ -502,7 +490,7 @@ static unique_ptr<PrototypeAST> LogErrorP(const char *Str) {
     return nullptr;
 }
 
-Value *LogErrorV(const char *Str) {
+static Value *LogErrorV(const char *Str) {
     LogError(Str);
     return nullptr;
 }
@@ -532,12 +520,6 @@ static Function *getFunction(std::string Name) {
 const std::string& FunctionAST::getName() const {
     return Proto->getName();
 }
-
-//void CompoundExprAST::addNameToScope(string name, unique_ptr<ExprAST> init) {
-//    if (Scope.find(name) != Scope.end())
-//        return;
-//    Scope[name] = move(init);
-//}
 
 Value *NumberExprAST::codegen() {
     SispDbgInfo.emitLocation(this);
@@ -669,8 +651,6 @@ Value *ForExprAST::codegen() {
     Builder.CreateBr(LoopBlock);
     Builder.SetInsertPoint(LoopBlock);
 
-//    auto OldVal = NamedValues[VarName];
-//    NamedValues[VarName] = Alloca;
     getScope()->setVal(VarName, Alloca);
 
     if (!Body->codegen())
@@ -699,11 +679,6 @@ Value *ForExprAST::codegen() {
     Builder.CreateCondBr(EndCond, LoopBlock, AfterBlock);
     Builder.SetInsertPoint(AfterBlock);
 
-//    if (OldVal)
-//        NamedValues[VarName] = OldVal;
-//    else
-//        NamedValues.erase(VarName);
-
     return Constant::getNullValue(Type::getDoubleTy(TheContext));
 }
 
@@ -728,19 +703,9 @@ Value *VarExprAST::codegen() {
         Builder.CreateStore(InitVal, Alloca);
 
         scope->setVal(VarName, Alloca);
-
-//        OldBindings.push_back(NamedValues[VarName]);
-//        NamedValues[VarName] = Alloca;
     }
 
     SispDbgInfo.emitLocation(this);
-//    auto BodyVal = Body->codegen();
-//    if (!BodyVal)
-//        return nullptr;
-
-//    for (unsigned long i = 0, e = VarNames.size(); i != e; i++) {
-//        NamedValues[VarNames[i].first] = OldBindings[i];
-//    }
 
     return Constant::getNullValue(Type::getDoubleTy(TheContext));
 }
@@ -841,9 +806,6 @@ Function *FunctionAST::codegen() {
     // will run past them when breaking on a function)
     SispDbgInfo.emitLocation(nullptr);
 
-    // Record the function arguments in the NamedValues map.
-//    NamedValues.clear();
-
     unsigned ArgIdx = 0;
     for (auto &Arg : F->args()) {
         auto Alloca = CreateEntryBlockAlloca(F, Arg.getName());
@@ -858,7 +820,6 @@ Function *FunctionAST::codegen() {
                                 Builder.GetInsertBlock());
 
         Builder.CreateStore(&Arg, Alloca);
-//        NamedValues[Arg.getName()] = Alloca;
         Body->getScope()->setVal(Arg.getName(), Alloca);
     }
 

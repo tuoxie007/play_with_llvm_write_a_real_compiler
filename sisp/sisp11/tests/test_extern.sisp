@@ -1,0 +1,6 @@
+
+extern printd(x);
+
+printd(42);
+
+# => no error

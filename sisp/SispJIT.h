@@ -6,6 +6,9 @@
 //  Copyright © 2020 Beibei Inc. All rights reserved.
 //
 
+#ifndef SispJIT_h
+#define SispJIT_h
+
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
@@ -34,9 +37,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
-#ifndef SispJIT_h
-#define SispJIT_h
 
 class PrototypeAST;
 class ExprAST;
