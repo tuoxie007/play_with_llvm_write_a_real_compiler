@@ -17,29 +17,6 @@
 using namespace std;
 using namespace llvm;
 
-static int MainLoop() {
-    auto scope = make_shared<Scope>();
-    while (true) {
-        switch (CurTok) {
-            case tok_eof:
-                return 0;
-            case tok_colon:
-            case tok_right_bracket:
-                getNextToken();
-                break;
-            case tok_def:
-                HandleDefinition(scope);
-                break;
-            case tok_extern:
-                HandleExtern();
-                break;
-            default:
-                HandleTopLevelExpression(scope);
-                break;
-        }
-    }
-}
-
 
 #ifdef _WIN32
 #define DLLEXPORT __declspec(dllexport)
@@ -59,44 +36,50 @@ extern "C" DLLEXPORT double printd(double X) {
     return 0;
 }
 
+static int MainLoop() {
+    auto scope = make_shared<Scope>();
+    while (true) {
+        cout << "CurTok: " << to_string((TheParser->getCurToken())) << endl;
+        switch (TheParser->getCurToken()) {
+            case tok_eof:
+                return 0;
+            case tok_colon:
+            case tok_right_bracket:
+                TheParser->getNextToken();
+                break;
+            case tok_def:
+                TheParser->HandleDefinition(scope);
+                break;
+            case tok_extern:
+                TheParser->HandleExtern();
+                break;
+            default:
+                TheParser->HandleTopLevelExpression(scope);
+                break;
+        }
+    }
+}
+
 int compile(std::string &src, std::map<string, string> *opts) {
 
     InitializeNativeTarget();
     InitializeNativeTargetAsmPrinter();
     InitializeNativeTargetAsmParser();
 
-    BinOpPrecedence[tok_equal] = 2;
-    BinOpPrecedence[tok_less] = 10;
-    BinOpPrecedence[tok_add] = 20;
-    BinOpPrecedence[tok_sub] = 20;
-    BinOpPrecedence[tok_mul] = 40;
-
-    TheCode = src;
-
-//    cout << TheCode << endl;
-
-    getNextToken();
+    cout << src << endl;
 
     std::string jit = (*opts)["jit"];
-    if (jit == "1")
-        JITEnabled = true;
-
-    TheJIT = std::make_unique<llvm::orc::SispJIT>();
-    InitializeModuleAndPassManager();
-
-    TheModule->addModuleFlag(Module::Warning, "Debug Info Version", DEBUG_METADATA_VERSION);
-    if (Triple(sys::getProcessTriple()).isOSDarwin())
-        TheModule->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
-
-    DBuilder = std::make_unique<DIBuilder>(*TheModule);
-    SispDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile("ch10.sisp", "."), "Sisp Compiler", 0, "", 0);
+    TheParser = std::make_unique<Parser>(jit == "1", src);
 
     MainLoop();
 
     DBuilder->finalize();
 
-//    cout << "### Module Define ###" << endl;
-//    TheModule->print(outs(), nullptr);
+    cout << "### Module Define ###" << endl;
+    TheParser->getModule().print(outs(), nullptr);
+
+    if (jit == "1")
+        return 0;
 
     InitializeAllTargetInfos();
     InitializeAllTargets();
@@ -105,7 +88,7 @@ int compile(std::string &src, std::map<string, string> *opts) {
     InitializeAllAsmPrinters();
 
     auto TargetTriple = sys::getDefaultTargetTriple();
-    TheModule->setTargetTriple(TargetTriple);
+    TheParser->getModule().setTargetTriple(TargetTriple);
 
     string Error;
     auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
@@ -121,7 +104,7 @@ int compile(std::string &src, std::map<string, string> *opts) {
     TargetOptions opt;
     auto RM = Optional<Reloc::Model>();
     auto TheTargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
-    TheModule->setDataLayout(TheTargetMachine->createDataLayout());
+    TheParser->getModule().setDataLayout(TheTargetMachine->createDataLayout());
 
     auto Filename = "output.o";
     std::error_code EC;
@@ -135,10 +118,10 @@ int compile(std::string &src, std::map<string, string> *opts) {
         return 1;
     }
 
-    Pass.run(*TheModule);
+    Pass.run(TheParser->getModule());
     dest.flush();
 
-//    cout << "Wrote " << Filename << endl;
+    cout << "Wrote " << Filename << endl;
 
     return 0;
 }

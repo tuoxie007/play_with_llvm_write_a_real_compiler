@@ -20,6 +20,9 @@ int main(int argc, const char * argv[]) {
     auto testsDir = "/Users/xuke/mywork/play_with_llvm/sisp/sisp/sisp11/tests";
     for (const auto & entry : std::__fs::filesystem::directory_iterator(testsDir)) {
 
+//        if (entry.path().filename() != "test_forloop.sisp")
+//            continue;
+
         std::cout << "📟 start building " << entry.path().filename() << std::endl;
 
         std::string src;
@@ -33,6 +36,7 @@ int main(int argc, const char * argv[]) {
 
         std::map<std::string, std::string> opts;
         opts["jit"] = "1";
+        compile(src, &opts);
         compile(src, &opts);
     }
     return 0;

@@ -41,14 +41,6 @@
 using namespace std;
 using namespace llvm;
 
-extern bool JITEnabled;
-extern LLVMContext TheContext;
-extern unique_ptr<Module> TheModule;
-extern std::unique_ptr<llvm::orc::SispJIT> TheJIT;
-extern std::unique_ptr<legacy::FunctionPassManager> TheFPM;
-extern std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
-extern map<char, int> BinOpPrecedence;
-
 class ExprAST;
 
 class Scope {
@@ -79,7 +71,8 @@ protected:
     shared_ptr<Scope> scope;
 
 public:
-    ExprAST(shared_ptr<Scope> scope, SourceLocation Loc = CurLoc) : scope(scope), Loc(Loc) {}
+    ExprAST(shared_ptr<Scope> scope);
+    ExprAST(shared_ptr<Scope> scope, SourceLocation Loc) : scope(scope), Loc(Loc) {}
     virtual ~ExprAST() {}
     virtual Value *codegen() = 0;
     int getLine() const { return Loc.Line; };
@@ -288,12 +281,98 @@ static Value *LogErrorV(const char *Str) {
     return nullptr;
 }
 
-void InitializeModuleAndPassManager();
+class DebugInfo {
+public:
+    DebugInfo() {};
+    DICompileUnit *TheCU;
+    DIType *DblTy;
+    std::vector<DIScope *> LexicalBlocks;
+    DIType *getDoubleTy();
+    void emitLocation(ExprAST *AST);
+};
 
-void HandleDefinition(shared_ptr<Scope> scope);
+//extern LLVMContext TheContext;
+extern std::unique_ptr<DIBuilder> DBuilder;
+extern DebugInfo SispDbgInfo;
 
-void HandleExtern();
+class Parser {
+    bool JITEnabled;
+    LLVMContext LLContext;
+    IRBuilder<> *Builder;
+    unique_ptr<Module> TheModule;
+    std::unique_ptr<llvm::orc::SispJIT> TheJIT = std::make_unique<llvm::orc::SispJIT>();;
+    std::unique_ptr<legacy::FunctionPassManager> TheFPM;
+    std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
+    map<char, int> BinOpPrecedence;
+    std::unique_ptr<Lexer> TheLexer;
 
-void HandleTopLevelExpression(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParseNumberExpr(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParseParenExpr(shared_ptr<Scope> scope);
+    std::unique_ptr<ExprAST> ParseIdentifierExpr(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParsePrimary(shared_ptr<Scope> scope);
+    int GetTokenPrecedence();
+    unique_ptr<ExprAST> ParseExpr(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParseBinOpRHS(shared_ptr<Scope> scope, int ExprPrec, unique_ptr<ExprAST> LHS);
+    unique_ptr<ExprAST> ParseIfExpr(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParseForExpr(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParseUnary(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParseVarExpr(shared_ptr<Scope> scope);
+    unique_ptr<PrototypeAST> ParsePrototype();
+    unique_ptr<FunctionAST> ParseDefinition(shared_ptr<Scope> scope);
+    unique_ptr<PrototypeAST> ParseExtern();
+    unique_ptr<FunctionAST> ParseTopLevelExpr(shared_ptr<Scope> scope);
+
+public:
+    Parser(bool jitEnabled, std::string src)
+    : JITEnabled(jitEnabled), TheLexer(std::make_unique<Lexer>(src)) {
+
+        Builder = new IRBuilder<>(LLContext);
+
+        BinOpPrecedence[tok_equal] = 2;
+        BinOpPrecedence[tok_less] = 10;
+        BinOpPrecedence[tok_add] = 20;
+        BinOpPrecedence[tok_sub] = 20;
+        BinOpPrecedence[tok_mul] = 40;
+
+        getNextToken();
+
+        InitializeModuleAndPassManager();
+
+        TheModule->addModuleFlag(Module::Warning, "Debug Info Version", DEBUG_METADATA_VERSION);
+        if (Triple(sys::getProcessTriple()).isOSDarwin())
+            TheModule->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
+
+        DBuilder = std::make_unique<DIBuilder>(*TheModule);
+        SispDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile("ch10.sisp", "."), "Sisp Compiler", 0, "", 0);
+    }
+
+    Token getNextToken();
+    Token getCurToken() { return TheLexer->getCurToken(); }
+    SourceLocation getCurLoc() { return TheLexer->CurLoc; }
+    void InitializeModuleAndPassManager();
+    void HandleDefinition(shared_ptr<Scope> scope);
+    void HandleExtern();
+    void HandleTopLevelExpression(shared_ptr<Scope> scope);
+
+    static AllocaInst *CreateEntryBlockAlloca(Function *F, const string &VarName);
+    void SetBinOpPrecedence(char Op, int Prec) {
+        if (Prec >= 0) {
+            BinOpPrecedence[Op] = Prec;
+        } else {
+            BinOpPrecedence.erase(Op);
+        }
+    };
+    void AddFunctionProtos(std::unique_ptr<PrototypeAST> Proto) {
+        FunctionProtos[Proto->getName()] = std::move(Proto);
+    }
+    Function *getFunction(std::string Name);
+    Module &getModule() const { return *TheModule.get(); };
+    const bool isJITEnabled() const { return JITEnabled; }
+    LLVMContext &getContext() { return this->LLContext; };
+    IRBuilder<> *getBuilder() { return Builder; };
+    void RunFunction(Function *F) { TheFPM->run(*F); };
+};
+
+extern unique_ptr<Parser> TheParser;
 
 #endif /* Parser_hpp */

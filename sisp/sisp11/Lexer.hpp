@@ -57,14 +57,38 @@ struct SourceLocation {
     int Line;
     int Col;
 };
-extern SourceLocation CurLoc;
-extern SourceLocation LexLoc;
 
-extern Token CurTok;
-extern int getNextToken();
+//extern SourceLocation CurLoc;
+//extern SourceLocation LexLoc;
+//
+//extern Token CurTok;
+//extern int getNextToken();
+//
+//extern string IdentifierStr;
+//extern double NumVal;
+//extern string TheCode;
 
-extern string IdentifierStr;
-extern double NumVal;
-extern string TheCode;
+class Lexer {
+public:
+
+    SourceLocation CurLoc;
+    SourceLocation LexLoc = {1, 0};
+
+    Token CurTok = (Token)0;
+    string::size_type Index = 0;
+    char LastChar = (char)tok_space;
+
+    string IdentifierStr;
+    double NumVal;
+    string TheCode;
+
+    Lexer(string &code): TheCode(code) {}
+    Token getNextToken();
+    Token getCurToken() {
+        return CurTok;
+    }
+    int GetChar();
+    int gettok();
+};
 
 #endif /* Lexer_hpp */

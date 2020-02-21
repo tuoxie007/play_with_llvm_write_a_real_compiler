@@ -11,17 +11,16 @@
 
 using namespace std;
 
-SourceLocation CurLoc;
-SourceLocation LexLoc = {1, 0};
+//SourceLocation CurLoc;
+//SourceLocation LexLoc = {1, 0};
+//
+//Token CurTok;
+//
+//string IdentifierStr;
+//double NumVal;
+//string TheCode;
 
-Token CurTok;
-
-string IdentifierStr;
-double NumVal;
-string TheCode;
-
-static int GetChar() {
-    static string::size_type Index = 0;
+int Lexer::GetChar() {
     if (Index >= TheCode.length())
         return EOF;
     char CurChar = TheCode.at(Index++);
@@ -37,11 +36,7 @@ static int GetChar() {
     return CurChar;
 }
 
-//#define GetChar getchar
-
-static char LastChar = (char)tok_space;
-
-static int gettok() {
+int Lexer::gettok() {
     while (isspace(LastChar)) {
         LastChar = GetChar();
     }
@@ -111,6 +106,6 @@ static int gettok() {
     return ThisChar;
 }
 
-int getNextToken() {
+Token Lexer::getNextToken() {
     return CurTok = (Token)gettok();
 }

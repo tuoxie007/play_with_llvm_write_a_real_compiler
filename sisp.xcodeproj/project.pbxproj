@@ -2833,6 +2833,7 @@
 		BFC34C3823FD3A7D0086F9EE /* test_compound.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_compound.sisp; sourceTree = "<group>"; };
 		BFC34C4423FE8C0D0086F9EE /* cli.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = cli.cpp; sourceTree = "<group>"; };
 		BFC34C4623FE90EB0086F9EE /* Driver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Driver.hpp; sourceTree = "<group>"; };
+		BFC34C4923FFB2A70086F9EE /* GlobalVars.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = GlobalVars.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -6964,6 +6965,7 @@
 				BFC34C2523FD22D50086F9EE /* Codegen.cpp */,
 				BFC34C4623FE90EB0086F9EE /* Driver.hpp */,
 				BFC34C2823FD23120086F9EE /* Driver.cpp */,
+				BFC34C4923FFB2A70086F9EE /* GlobalVars.hpp */,
 			);
 			path = sisp11;
 			sourceTree = "<group>";

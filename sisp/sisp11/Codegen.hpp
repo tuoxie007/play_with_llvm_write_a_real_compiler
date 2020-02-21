@@ -11,17 +11,4 @@
 
 #include "Parser.hpp"
 
-struct DebugInfo {
-    DICompileUnit *TheCU;
-    DIType *DblTy;
-    std::vector<DIScope *> LexicalBlocks;
-
-    DIType *getDoubleTy();
-    void emitLocation(ExprAST *AST);
-};
-
-extern DebugInfo SispDbgInfo;
-
-extern std::unique_ptr<DIBuilder> DBuilder;
-
 #endif /* Codegen_hpp */

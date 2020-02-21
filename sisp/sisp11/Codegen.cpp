@@ -8,10 +8,6 @@
 
 #include "Codegen.hpp"
 
-DebugInfo SispDbgInfo;
-
-static IRBuilder<> Builder(TheContext);
-std::unique_ptr<DIBuilder> DBuilder;
 static vector<DIScope *> LexicalBlocks;
 
 DIType *DebugInfo::getDoubleTy() {
@@ -24,7 +20,7 @@ DIType *DebugInfo::getDoubleTy() {
 
 void DebugInfo::emitLocation(ExprAST *AST) {
     if (!AST)
-        return Builder.SetCurrentDebugLocation(DebugLoc());
+        return TheParser->getBuilder()->SetCurrentDebugLocation(DebugLoc());
 
     DIScope *Scope;
     if (LexicalBlocks.empty())
@@ -32,7 +28,7 @@ void DebugInfo::emitLocation(ExprAST *AST) {
     else
         Scope = LexicalBlocks.back();
 
-    Builder.SetCurrentDebugLocation(DebugLoc::get(AST->getLine(), AST->getCol(), Scope));
+    TheParser->getBuilder()->SetCurrentDebugLocation(DebugLoc::get(AST->getLine(), AST->getCol(), Scope));
 }
 
 static DISubroutineType *CreateFunctionType(unsigned long NumArgs, DIFile *Unit) {
@@ -48,35 +44,13 @@ static DISubroutineType *CreateFunctionType(unsigned long NumArgs, DIFile *Unit)
   return DBuilder->createSubroutineType(DBuilder->getOrCreateTypeArray(EltTys));
 }
 
-static AllocaInst *CreateEntryBlockAlloca(Function *F,
-                                          const string &VarName) {
-    IRBuilder<> TmpBlock(&F->getEntryBlock(),
-                         F->getEntryBlock().begin());
-    return TmpBlock.CreateAlloca(Type::getDoubleTy(TheContext), 0, VarName.c_str());
-}
-
-static Function *getFunction(std::string Name) {
-    // First, see if the function has already been added to the current module.
-    if (auto *F = TheModule->getFunction(Name))
-        return F;
-
-    // If not, check whether we can codegen the declaration from some existing
-    // prototype.
-    auto FI = FunctionProtos.find(Name);
-    if (FI != FunctionProtos.end())
-        return FI->second->codegen();
-
-    // If no existing prototype exists, return null.
-    return nullptr;
-}
-
 const std::string& FunctionAST::getName() const {
     return Proto->getName();
 }
 
 Value *NumberExprAST::codegen() {
     SispDbgInfo.emitLocation(this);
-    return ConstantFP::get(TheContext, APFloat(Val));
+    return ConstantFP::get(TheParser->getContext(), APFloat(Val));
 }
 
 Value *VariableExprAST::codegen() {
@@ -85,7 +59,7 @@ Value *VariableExprAST::codegen() {
         LogError("Unkown variable name");
 
     SispDbgInfo.emitLocation(this);
-    return Builder.CreateLoad(V, Name.c_str());
+    return TheParser->getBuilder()->CreateLoad(V, Name.c_str());
 }
 
 Value *BinaryExprAST::codegen() {
@@ -104,7 +78,7 @@ Value *BinaryExprAST::codegen() {
         if (!Variable)
             return LogErrorV("Unkown variable name");
 
-        Builder.CreateStore(Val, Variable);
+        TheParser->getBuilder()->CreateStore(Val, Variable);
         return Val;
     }
 
@@ -117,20 +91,20 @@ Value *BinaryExprAST::codegen() {
 
     switch (Op) {
         case tok_add:
-            return Builder.CreateFAdd(L, R, "addtmp");
+            return TheParser->getBuilder()->CreateFAdd(L, R, "addtmp");
         case tok_sub:
-            return Builder.CreateFSub(L, R, "subtmp");
+            return TheParser->getBuilder()->CreateFSub(L, R, "subtmp");
         case tok_mul:
-            return Builder.CreateFMul(L, R, "multmp");
+            return TheParser->getBuilder()->CreateFMul(L, R, "multmp");
         case tok_less:
-            L = Builder.CreateFCmpULT(L, R, "cmptmp");
-            return Builder.CreateUIToFP(L, Type::getDoubleTy(TheContext));
+            L = TheParser->getBuilder()->CreateFCmpULT(L, R, "cmptmp");
+            return TheParser->getBuilder()->CreateUIToFP(L, Type::getDoubleTy(TheParser->getContext()));
         default:
         {
-            auto F = getFunction(string("binary") + Op);
+            auto F = TheParser->getFunction(string("binary") + Op);
             assert(F && "binary operator not found!");
             auto Ops = { L, R };
-            return Builder.CreateCall(F, Ops, "calltmp");
+            return TheParser->getBuilder()->CreateCall(F, Ops, "calltmp");
         }
     }
 }
@@ -141,41 +115,41 @@ Value *IfExprAST::codegen() {
     if (!CondV)
         return nullptr;
 
-    CondV = Builder.CreateFCmpONE(CondV, ConstantFP::get(TheContext, APFloat(0.0)), "ifcond");
+    CondV = TheParser->getBuilder()->CreateFCmpONE(CondV, ConstantFP::get(TheParser->getContext(), APFloat(0.0)), "ifcond");
 
-    auto F = Builder.GetInsertBlock()->getParent();
+    auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
 
-    auto ThenBlock = BasicBlock::Create(TheContext, "then", F);
-    auto ElseBlock = BasicBlock::Create(TheContext, "else");
-    auto MergeBlock = BasicBlock::Create(TheContext, "ifcont");
+    auto ThenBlock = BasicBlock::Create(TheParser->getContext(), "then", F);
+    auto ElseBlock = BasicBlock::Create(TheParser->getContext(), "else");
+    auto MergeBlock = BasicBlock::Create(TheParser->getContext(), "ifcont");
 
-    Builder.CreateCondBr(CondV, ThenBlock, ElseBlock);
+    TheParser->getBuilder()->CreateCondBr(CondV, ThenBlock, ElseBlock);
 
-    Builder.SetInsertPoint(ThenBlock);
+    TheParser->getBuilder()->SetInsertPoint(ThenBlock);
 
     auto ThenV = Then->codegen();
     if (!ThenV)
         return nullptr;
 
-    Builder.CreateBr(MergeBlock);
+    TheParser->getBuilder()->CreateBr(MergeBlock);
 
-    ThenBlock = Builder.GetInsertBlock();
+    ThenBlock = TheParser->getBuilder()->GetInsertBlock();
 
     F->getBasicBlockList().push_back(ElseBlock);
-    Builder.SetInsertPoint(ElseBlock);
+    TheParser->getBuilder()->SetInsertPoint(ElseBlock);
 
     auto ElseV = Else->codegen();
     if (!ElseV)
         return nullptr;
 
-    Builder.CreateBr(MergeBlock);
+    TheParser->getBuilder()->CreateBr(MergeBlock);
 
-    ElseBlock = Builder.GetInsertBlock();
+    ElseBlock = TheParser->getBuilder()->GetInsertBlock();
 
     F->getBasicBlockList().push_back(MergeBlock);
-    Builder.SetInsertPoint(MergeBlock);
+    TheParser->getBuilder()->SetInsertPoint(MergeBlock);
 
-    auto PN = Builder.CreatePHI(Type::getDoubleTy(TheContext), 2, "iftmp");
+    auto PN = TheParser->getBuilder()->CreatePHI(Type::getDoubleTy(TheParser->getContext()), 2, "iftmp");
 
     PN->addIncoming(ThenV, ThenBlock);
     PN->addIncoming(ElseV, ElseBlock);
@@ -188,9 +162,9 @@ Value *ForExprAST::codegen() {
     if (!StartValue)
         return nullptr;
 
-    auto F = Builder.GetInsertBlock()->getParent();
+    auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
 
-    auto Alloca = CreateEntryBlockAlloca(F, VarName);
+    auto Alloca = Parser::CreateEntryBlockAlloca(F, VarName);
 
     SispDbgInfo.emitLocation(this);
 
@@ -198,11 +172,11 @@ Value *ForExprAST::codegen() {
     if (!Start)
         return nullptr;
 
-    Builder.CreateStore(StartVal, Alloca);
+    TheParser->getBuilder()->CreateStore(StartVal, Alloca);
 
-    auto LoopBlock = BasicBlock::Create(TheContext, "loop", F);
-    Builder.CreateBr(LoopBlock);
-    Builder.SetInsertPoint(LoopBlock);
+    auto LoopBlock = BasicBlock::Create(TheParser->getContext(), "loop", F);
+    TheParser->getBuilder()->CreateBr(LoopBlock);
+    TheParser->getBuilder()->SetInsertPoint(LoopBlock);
 
     getScope()->setVal(VarName, Alloca);
 
@@ -215,30 +189,30 @@ Value *ForExprAST::codegen() {
         if (!StepVal)
             return nullptr;
     } else {
-        StepVal = ConstantFP::get(TheContext, APFloat(1.0));
+        StepVal = ConstantFP::get(TheParser->getContext(), APFloat(1.0));
     }
 
     auto EndCond = End->codegen();
     if (!EndCond)
         return nullptr;
 
-    auto CurVar = Builder.CreateLoad(Alloca, VarName.c_str());
-    auto NextVar = Builder.CreateFAdd(CurVar, StepVal, "nextvar");
-    Builder.CreateStore(NextVar, Alloca);
+    auto CurVar = TheParser->getBuilder()->CreateLoad(Alloca, VarName.c_str());
+    auto NextVar = TheParser->getBuilder()->CreateFAdd(CurVar, StepVal, "nextvar");
+    TheParser->getBuilder()->CreateStore(NextVar, Alloca);
 
-    EndCond = Builder.CreateFCmpONE(EndCond, ConstantFP::get(TheContext, APFloat(0.0)), "loopcond");
+    EndCond = TheParser->getBuilder()->CreateFCmpONE(EndCond, ConstantFP::get(TheParser->getContext(), APFloat(0.0)), "loopcond");
 
-    auto AfterBlock = BasicBlock::Create(TheContext, "afterloop", F);
-    Builder.CreateCondBr(EndCond, LoopBlock, AfterBlock);
-    Builder.SetInsertPoint(AfterBlock);
+    auto AfterBlock = BasicBlock::Create(TheParser->getContext(), "afterloop", F);
+    TheParser->getBuilder()->CreateCondBr(EndCond, LoopBlock, AfterBlock);
+    TheParser->getBuilder()->SetInsertPoint(AfterBlock);
 
-    return Constant::getNullValue(Type::getDoubleTy(TheContext));
+    return Constant::getNullValue(Type::getDoubleTy(TheParser->getContext()));
 }
 
 Value *VarExprAST::codegen() {
 //    vector<AllocaInst *> OldBindings;
 
-    auto F = Builder.GetInsertBlock()->getParent();
+    auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
 
     for (unsigned long i = 0, e = VarNames.size(); i != e; i++) {
         string &VarName = VarNames[i].first;
@@ -249,18 +223,18 @@ Value *VarExprAST::codegen() {
             if (!InitVal)
                 return nullptr;
         } else {
-            InitVal = ConstantFP::get(TheContext, APFloat(0.0));
+            InitVal = ConstantFP::get(TheParser->getContext(), APFloat(0.0));
         }
 
-        auto Alloca = CreateEntryBlockAlloca(F, VarName);
-        Builder.CreateStore(InitVal, Alloca);
+        auto Alloca = Parser::CreateEntryBlockAlloca(F, VarName);
+        TheParser->getBuilder()->CreateStore(InitVal, Alloca);
 
         scope->setVal(VarName, Alloca);
     }
 
     SispDbgInfo.emitLocation(this);
 
-    return Constant::getNullValue(Type::getDoubleTy(TheContext));
+    return Constant::getNullValue(Type::getDoubleTy(TheParser->getContext()));
 }
 
 Value *UnaryExprAST::codegen() {
@@ -268,12 +242,12 @@ Value *UnaryExprAST::codegen() {
     if (!OperandV)
         return nullptr;
 
-    auto F = getFunction(string("unary") + Opcode);
+    auto F = TheParser->getFunction(string("unary") + Opcode);
     if (!F)
         return LogErrorV("Unkown unary operator");
 
     SispDbgInfo.emitLocation(this);
-    return Builder.CreateCall(F, OperandV, "unop");
+    return TheParser->getBuilder()->CreateCall(F, OperandV, "unop");
 }
 
 Value *CompoundExprAST::codegen() {
@@ -283,13 +257,13 @@ Value *CompoundExprAST::codegen() {
         if (!(*Expr)->codegen())
             return nullptr;
     }
-    return Constant::getNullValue(Type::getDoubleTy(TheContext));
+    return Constant::getNullValue(Type::getDoubleTy(TheParser->getContext()));
 }
 
 Value *CallExprAST::codegen() {
     SispDbgInfo.emitLocation(this);
     // Look up the name in the global module table.
-    Function *CalleeF = getFunction(Callee);
+    Function *CalleeF = TheParser->getFunction(Callee);
     if (!CalleeF)
         return LogErrorV((string("Unknown function referenced ") + Callee).c_str());
 
@@ -304,13 +278,13 @@ Value *CallExprAST::codegen() {
         return nullptr;
     }
 
-    return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
+    return TheParser->getBuilder()->CreateCall(CalleeF, ArgsV, "calltmp");
 }
 
 Function *PrototypeAST::codegen() {
-    vector<Type *> Doubles(Args.size(), Type::getDoubleTy(TheContext));
-    FunctionType *FT = FunctionType::get(Type::getDoubleTy(TheContext), Doubles, false);
-    Function *F = Function::Create(FT, Function::ExternalLinkage, Name, TheModule.get());
+    vector<Type *> Doubles(Args.size(), Type::getDoubleTy(TheParser->getContext()));
+    FunctionType *FT = FunctionType::get(Type::getDoubleTy(TheParser->getContext()), Doubles, false);
+    Function *F = Function::Create(FT, Function::ExternalLinkage, Name, TheParser->getModule());
     unsigned long Idx = 0;
     for (auto &Arg : F->args())
         Arg.setName(Args[Idx++]);
@@ -321,17 +295,17 @@ Function *FunctionAST::codegen() {
     // Transfer ownership of the prototype to the FunctionProtos map, but keep a
     // reference to it for use below.
     auto &P = *Proto;
-    FunctionProtos[Proto->getName()] = std::move(Proto);
-    Function *F = getFunction(P.getName());
+    TheParser->AddFunctionProtos(move(Proto));
+    Function *F = TheParser->getFunction(P.getName());
     if (!F)
         return nullptr;
 
     if (P.isBinaryOp())
-        BinOpPrecedence[P.getOperatorName()] = P.getBinaryPrecedence();
+        TheParser->SetBinOpPrecedence(P.getOperatorName(), P.getBinaryPrecedence());
 
     // Create a new basic block to start insertion into.
-    auto BB = BasicBlock::Create(TheContext, "entry", F);
-    Builder.SetInsertPoint(BB);
+    auto BB = BasicBlock::Create(TheParser->getContext(), "entry", F);
+    TheParser->getBuilder()->SetInsertPoint(BB);
 
     // Create a subprogram DIE for this function.
     DIFile *Unit = DBuilder->createFile(SispDbgInfo.TheCU->getFilename(),
@@ -361,7 +335,7 @@ Function *FunctionAST::codegen() {
 
     unsigned ArgIdx = 0;
     for (auto &Arg : F->args()) {
-        auto Alloca = CreateEntryBlockAlloca(F, Arg.getName());
+        auto Alloca = Parser::CreateEntryBlockAlloca(F, Arg.getName());
 
         // Create a debug descriptor for the variable.
         DILocalVariable *D = DBuilder->createParameterVariable(
@@ -370,9 +344,9 @@ Function *FunctionAST::codegen() {
 
         DBuilder->insertDeclare(Alloca, D, DBuilder->createExpression(),
                                 DebugLoc::get(LineNo, 0, SP),
-                                Builder.GetInsertBlock());
+                                TheParser->getBuilder()->GetInsertBlock());
 
-        Builder.CreateStore(&Arg, Alloca);
+        TheParser->getBuilder()->CreateStore(&Arg, Alloca);
         Body->getScope()->setVal(Arg.getName(), Alloca);
     }
 
@@ -380,16 +354,16 @@ Function *FunctionAST::codegen() {
 
     if (Value *RetVal = Body->codegen()) {
         // Finish off the function.
-        Builder.CreateRet(RetVal);
+        TheParser->getBuilder()->CreateRet(RetVal);
 
         SispDbgInfo.LexicalBlocks.pop_back();
 
         // Validate the generated code, checking for consistency.
         verifyFunction(*F);
 
-        if (JITEnabled) {
+        if (TheParser->isJITEnabled()) {
             // Run the optimizer on the function.
-            TheFPM->run(*F);
+            TheParser->RunFunction(F);
         }
 
         return F;
@@ -399,7 +373,7 @@ Function *FunctionAST::codegen() {
     F->eraseFromParent();
 
     if (P.isBinaryOp())
-        BinOpPrecedence.erase(Proto->getOperatorName());
+        TheParser->SetBinOpPrecedence(Proto->getOperatorName(), -1);
 
     SispDbgInfo.LexicalBlocks.pop_back();
 

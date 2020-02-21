@@ -13,69 +13,80 @@ using namespace std;
 
 #define make_unique std::make_unique
 
-bool JITEnabled = false;
-LLVMContext TheContext;
-unique_ptr<Module> TheModule;
-std::unique_ptr<llvm::orc::SispJIT> TheJIT;
-std::unique_ptr<legacy::FunctionPassManager> TheFPM;
-std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
+//LLVMContext TheContext;
+std::unique_ptr<DIBuilder> DBuilder;
+DebugInfo SispDbgInfo;
+unique_ptr<Parser> TheParser;
+//unique_ptr<Module> TheModule;
+//std::unique_ptr<llvm::orc::SispJIT> TheJIT;
+//std::unique_ptr<legacy::FunctionPassManager> TheFPM;
+//std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
 
-map<char, int> BinOpPrecedence;
+//map<char, int> BinOpPrecedence;
 
-static unique_ptr<ExprAST> ParseIfExpr(shared_ptr<Scope> scope);
-static unique_ptr<ExprAST> ParseForExpr(shared_ptr<Scope> scope);
+//unique_ptr<ExprAST> Parser::ParseIfExpr(shared_ptr<Scope> scope);
+//static unique_ptr<ExprAST> ParseForExpr(shared_ptr<Scope> scope);
 
-static unique_ptr<ExprAST> ParseNumberExpr(shared_ptr<Scope> scope) {
-    auto Result = make_unique<NumberExprAST>(scope, NumVal);
+ExprAST::ExprAST(shared_ptr<Scope> scope) {
+    this->scope = scope;
+    this->Loc = TheParser->getCurLoc();
+}
+
+Token Parser::getNextToken() {
+    return TheLexer->getNextToken();
+}
+
+unique_ptr<ExprAST> Parser::ParseNumberExpr(shared_ptr<Scope> scope) {
+    auto Result = make_unique<NumberExprAST>(scope, TheLexer->NumVal);
     getNextToken();
 
-    if (CurTok == tok_colon) {
+    if (TheLexer->CurTok == tok_colon) {
         getNextToken();
     }
     return move(Result);
 }
 
-static unique_ptr<ExprAST> ParseParenExpr(shared_ptr<Scope> scope) {
+unique_ptr<ExprAST> Parser::ParseParenExpr(shared_ptr<Scope> scope) {
     getNextToken();
     auto V = ParseExpr(scope);
     if (!V)
         return nullptr;
 
-    if (CurTok != tok_right_paren)
+    if (TheLexer->CurTok != tok_right_paren)
         return LogError("expected ')'");
 
     getNextToken();
 
-    if (CurTok == tok_colon) {
+    if (TheLexer->CurTok == tok_colon) {
         getNextToken();
     }
     return V;
 }
 
-static std::unique_ptr<ExprAST> ParseIdentifierExpr(shared_ptr<Scope> scope) {
-    std::string IdName = IdentifierStr;
+std::unique_ptr<ExprAST> Parser::ParseIdentifierExpr(shared_ptr<Scope> scope) {
+    std::string IdName = TheLexer->IdentifierStr;
 
-    SourceLocation LitLoc = CurLoc;
+    SourceLocation LitLoc = TheLexer->CurLoc;
 
     getNextToken(); // eat identifier.
 
-    if (CurTok != tok_left_paren) // Simple variable ref.
+    if (TheLexer->CurTok != tok_left_paren) // Simple variable ref.
         return make_unique<VariableExprAST>(scope, LitLoc, IdName);
 
     // Call.
     getNextToken(); // eat (
     std::vector<std::unique_ptr<ExprAST>> Args;
-    if (CurTok != tok_right_paren) {
+    if (TheLexer->CurTok != tok_right_paren) {
         while (true) {
             if (auto Arg = ParseExpr(scope))
                 Args.push_back(std::move(Arg));
             else
                 return nullptr;
 
-            if (CurTok == tok_right_paren)
+            if (TheLexer->CurTok == tok_right_paren)
                 break;
 
-            if (CurTok != tok_comma)
+            if (TheLexer->CurTok != tok_comma)
                 return LogError("Expected ')' or ',' in argument list");
 
                 getNextToken();
@@ -85,17 +96,17 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr(shared_ptr<Scope> scope) {
     // Eat the ')'.
     getNextToken();
 
-    if (CurTok == tok_colon) {
+    if (TheLexer->CurTok == tok_colon) {
         getNextToken();
     }
 
-    return make_unique<CallExprAST>(scope, CurLoc, IdName, std::move(Args));
+    return make_unique<CallExprAST>(scope, TheLexer->CurLoc, IdName, std::move(Args));
 }
 
-static unique_ptr<ExprAST> ParseVarExpr(shared_ptr<Scope> scope);
+//unique_ptr<ExprAST> ParseVarExpr(shared_ptr<Scope> scope);
 
-static unique_ptr<ExprAST> ParsePrimary(shared_ptr<Scope> scope) {
-    switch (CurTok) {
+unique_ptr<ExprAST> Parser::ParsePrimary(shared_ptr<Scope> scope) {
+    switch (TheLexer->CurTok) {
         case tok_identifier:
             return ParseIdentifierExpr(scope);
         case tok_number:
@@ -113,12 +124,12 @@ static unique_ptr<ExprAST> ParsePrimary(shared_ptr<Scope> scope) {
     }
 }
 
-static int GetTokenPrecedence() {
-    if (!isascii(CurTok)) {
+int Parser::GetTokenPrecedence() {
+    if (!isascii(TheLexer->CurTok)) {
         return -1;
     }
 
-    int TokPrec = BinOpPrecedence[CurTok];
+    int TokPrec = BinOpPrecedence[TheLexer->CurTok];
     if (TokPrec <= 0) {
         return -1;
     }
@@ -126,11 +137,11 @@ static int GetTokenPrecedence() {
     return TokPrec;
 }
 
-static unique_ptr<ExprAST> ParseUnary(shared_ptr<Scope> scope);
-static unique_ptr<ExprAST> ParseBinOpRHS(shared_ptr<Scope> scope, int ExprPrec, unique_ptr<ExprAST> LHS);
+//static unique_ptr<ExprAST> ParseUnary(shared_ptr<Scope> scope);
+// unique_ptr<ExprAST> ParseBinOpRHS(shared_ptr<Scope> scope, int ExprPrec, unique_ptr<ExprAST> LHS);
 
-static unique_ptr<ExprAST> ParseExpr(shared_ptr<Scope> scope) {
-    if (CurTok == tok_left_bracket) {
+unique_ptr<ExprAST> Parser::ParseExpr(shared_ptr<Scope> scope) {
+    if (TheLexer->CurTok == tok_left_bracket) {
         cout << "## {" << endl;
 
         getNextToken();
@@ -138,7 +149,7 @@ static unique_ptr<ExprAST> ParseExpr(shared_ptr<Scope> scope) {
         vector<unique_ptr<ExprAST>> Exprs;
         auto localScope = make_shared<Scope>(scope);
         while (true) {
-            if (CurTok == tok_right_bracket) {
+            if (TheLexer->CurTok == tok_right_bracket) {
                 cout << "## }" << endl;
                 getNextToken();
                 break;
@@ -161,7 +172,7 @@ static unique_ptr<ExprAST> ParseExpr(shared_ptr<Scope> scope) {
     return ParseBinOpRHS(scope, 0, move(LHS));
 }
 
-static unique_ptr<ExprAST> ParseBinOpRHS(shared_ptr<Scope> scope,
+unique_ptr<ExprAST> Parser::ParseBinOpRHS(shared_ptr<Scope> scope,
                                          int ExprPrec,
                                          unique_ptr<ExprAST> LHS) {
     while (true) {
@@ -171,8 +182,8 @@ static unique_ptr<ExprAST> ParseBinOpRHS(shared_ptr<Scope> scope,
             return LHS;
         }
 
-        char BinOp = CurTok;
-        SourceLocation BinLoc = CurLoc;
+        char BinOp = TheLexer->CurTok;
+        SourceLocation BinLoc = TheLexer->CurLoc;
         getNextToken();
 
         auto RHS = ParseUnary(scope);
@@ -196,8 +207,8 @@ static unique_ptr<ExprAST> ParseBinOpRHS(shared_ptr<Scope> scope,
     }
 }
 
-static unique_ptr<ExprAST> ParseIfExpr(shared_ptr<Scope> scope) {
-    SourceLocation IfLoc = CurLoc;
+unique_ptr<ExprAST> Parser::ParseIfExpr(shared_ptr<Scope> scope) {
+    SourceLocation IfLoc = TheLexer->CurLoc;
 
     cout << "## if" << endl;
 
@@ -209,7 +220,7 @@ static unique_ptr<ExprAST> ParseIfExpr(shared_ptr<Scope> scope) {
     if (!Cond)
         return nullptr;
 
-    if (CurTok != tok_then)
+    if (TheLexer->CurTok != tok_then)
         return LogError("expected then");
     getNextToken();
 
@@ -219,7 +230,7 @@ static unique_ptr<ExprAST> ParseIfExpr(shared_ptr<Scope> scope) {
     if (!Then)
         return nullptr;
 
-    if (CurTok != tok_else)
+    if (TheLexer->CurTok != tok_else)
         return LogError("expected else");
     getNextToken();
 
@@ -230,30 +241,30 @@ static unique_ptr<ExprAST> ParseIfExpr(shared_ptr<Scope> scope) {
         return nullptr;
 
 
-    if (CurTok == tok_colon) {
+    if (TheLexer->CurTok == tok_colon) {
         getNextToken();
     }
     return make_unique<IfExprAST>(IfScope, IfLoc, move(Cond), move(Then), move(Else));
 }
 
-static unique_ptr<ExprAST> ParseForExpr(shared_ptr<Scope> scope) {
+unique_ptr<ExprAST> Parser::ParseForExpr(shared_ptr<Scope> scope) {
     getNextToken();
 
     cout << "## for" << endl;
 
-    if (CurTok != tok_left_paren)
+    if (TheLexer->CurTok != tok_left_paren)
         return LogError("expected '(' after for");
     getNextToken();
 
-    if (CurTok != tok_identifier)
+    if (TheLexer->CurTok != tok_identifier)
         return LogError("expected identifier after for");
 
     shared_ptr<Scope> ForScope = make_shared<Scope>(scope);
 
-    auto IdName = IdentifierStr;
+    auto IdName = TheLexer->IdentifierStr;
     getNextToken();
 
-    if (CurTok != tok_equal)
+    if (TheLexer->CurTok != tok_equal)
         return LogError("expected '=', after identifier");
     getNextToken();
 
@@ -263,7 +274,7 @@ static unique_ptr<ExprAST> ParseForExpr(shared_ptr<Scope> scope) {
     if (!Start)
         return nullptr;
 
-    if (CurTok == tok_colon)
+    if (TheLexer->CurTok == tok_colon)
 //        return LogError("expected ';' after start value");
         getNextToken();
 
@@ -276,14 +287,14 @@ static unique_ptr<ExprAST> ParseForExpr(shared_ptr<Scope> scope) {
     cout << "## step" << endl;
 
     unique_ptr<ExprAST> Step;
-    if (CurTok == tok_colon) {
+    if (TheLexer->CurTok == tok_colon) {
         getNextToken();
         Step = ParseExpr(ForScope);
         if (!Step)
             return nullptr;
     }
 
-    if (CurTok != tok_right_paren)
+    if (TheLexer->CurTok != tok_right_paren)
         return LogError("expected ')' in for");
     getNextToken();
 
@@ -296,7 +307,7 @@ static unique_ptr<ExprAST> ParseForExpr(shared_ptr<Scope> scope) {
         return nullptr;
 
 
-    if (CurTok == tok_colon) {
+    if (TheLexer->CurTok == tok_colon) {
         getNextToken();
     }
     return make_unique<ForExprAST>(ForScope,
@@ -307,13 +318,13 @@ static unique_ptr<ExprAST> ParseForExpr(shared_ptr<Scope> scope) {
                                    move(Body));
 }
 
-static unique_ptr<ExprAST> ParseUnary(shared_ptr<Scope> scope) {
-    if (!isascii(CurTok) ||
-        CurTok == tok_left_paren ||
-        CurTok == tok_comma)
+unique_ptr<ExprAST> Parser::ParseUnary(shared_ptr<Scope> scope) {
+    if (!isascii(TheLexer->CurTok) ||
+        TheLexer->CurTok == tok_left_paren ||
+        TheLexer->CurTok == tok_comma)
         return ParsePrimary(scope);
 
-    char Opc = CurTok;
+    char Opc = TheLexer->CurTok;
     getNextToken();
 
     if (auto Operand = ParseUnary(scope))
@@ -322,20 +333,20 @@ static unique_ptr<ExprAST> ParseUnary(shared_ptr<Scope> scope) {
     return nullptr;
 }
 
-static unique_ptr<ExprAST> ParseVarExpr(shared_ptr<Scope> scope) {
+unique_ptr<ExprAST> Parser::ParseVarExpr(shared_ptr<Scope> scope) {
     getNextToken();
 
     vector<pair<string, unique_ptr<ExprAST>>> VarNames;
 
-    if (CurTok != tok_identifier)
+    if (TheLexer->CurTok != tok_identifier)
         return LogError("expected identifier after var");
 
     while (true) {
-        auto Name = IdentifierStr;
+        auto Name = TheLexer->IdentifierStr;
         getNextToken();
 
         unique_ptr<ExprAST> Init;
-        if (CurTok == '=') {
+        if (TheLexer->CurTok == '=') {
             getNextToken();
 
             Init = ParseExpr(scope);
@@ -345,55 +356,55 @@ static unique_ptr<ExprAST> ParseVarExpr(shared_ptr<Scope> scope) {
 
         VarNames.push_back(make_pair(Name, move(Init)));
 
-        if (CurTok != ',')
+        if (TheLexer->CurTok != ',')
             break;
         getNextToken();
 
-        if (CurTok != tok_identifier)
+        if (TheLexer->CurTok != tok_identifier)
             return LogError("expected identifier list after var");
     }
 
 
-    if (CurTok == tok_colon) {
+    if (TheLexer->CurTok == tok_colon) {
         getNextToken();
     }
     return make_unique<VarExprAST>(scope, move(VarNames)/*, move(Body)*/);
 }
 
-static unique_ptr<PrototypeAST> ParsePrototype() {
+unique_ptr<PrototypeAST> Parser::ParsePrototype() {
 
-    SourceLocation FnLoc = CurLoc;
-    string FnName = IdentifierStr;
+    SourceLocation FnLoc = TheLexer->CurLoc;
+    string FnName = TheLexer->IdentifierStr;
     unsigned Kind = 0;
     unsigned BinaryPrecedence = 30;
 
-    switch (CurTok) {
+    switch (TheLexer->CurTok) {
         case tok_identifier:
-            FnName = IdentifierStr;
+            FnName = TheLexer->IdentifierStr;
             Kind = 0;
             getNextToken();
             break;
         case tok_unary:
             getNextToken();
-            if (!isascii(CurTok))
+            if (!isascii(TheLexer->CurTok))
                 return LogErrorP("Excpeted unary operator");
-            FnName = string("unary") + (char)CurTok;
+            FnName = string("unary") + (char)TheLexer->CurTok;
             Kind = 1;
             getNextToken();
             break;
         case tok_binary:
             getNextToken();
-            if (!isascii(CurTok))
+            if (!isascii(TheLexer->CurTok))
                 return LogErrorP("Expected binary operator");
             FnName = "binary";
-            FnName += (char)CurTok;
+            FnName += (char)TheLexer->CurTok;
             Kind = 2;
             getNextToken();
 
-            if (CurTok == tok_number) {
-                if (NumVal < 1 || NumVal > 100)
+            if (TheLexer->CurTok == tok_number) {
+                if (TheLexer->NumVal < 1 || TheLexer->NumVal > 100)
                     return LogErrorP("Invalid precedence: must be 1..100");
-                BinaryPrecedence = (unsigned)NumVal;
+                BinaryPrecedence = (unsigned)TheLexer->NumVal;
                 getNextToken();
             }
             break;
@@ -401,18 +412,18 @@ static unique_ptr<PrototypeAST> ParsePrototype() {
             return LogErrorP("Expected function name in prototype");
     }
 
-    if (CurTok != tok_left_paren) {
+    if (TheLexer->CurTok != tok_left_paren) {
         return LogErrorP("Expected '(' in prototype");
     }
 
     vector<string> ArgNames;
     while (getNextToken() == tok_identifier) {
-        ArgNames.push_back(IdentifierStr);
+        ArgNames.push_back(TheLexer->IdentifierStr);
     }
-    if (isspace(CurTok)) {
+    if (isspace(TheLexer->CurTok)) {
         getNextToken();
     }
-    if (CurTok != tok_right_paren) {
+    if (TheLexer->CurTok != tok_right_paren) {
         return LogErrorP("Expected ')' in prototype");
     }
 
@@ -424,7 +435,7 @@ static unique_ptr<PrototypeAST> ParsePrototype() {
     return make_unique<PrototypeAST>(FnLoc, FnName, move(ArgNames), Kind != 0, BinaryPrecedence);
 }
 
-static unique_ptr<FunctionAST> ParseDefinition(shared_ptr<Scope> scope) {
+unique_ptr<FunctionAST> Parser::ParseDefinition(shared_ptr<Scope> scope) {
     getNextToken();
     auto Proto = ParsePrototype();
     if (!Proto) {
@@ -437,13 +448,13 @@ static unique_ptr<FunctionAST> ParseDefinition(shared_ptr<Scope> scope) {
     return nullptr;
 }
 
-static unique_ptr<PrototypeAST> ParseExtern() {
+unique_ptr<PrototypeAST> Parser::ParseExtern() {
     getNextToken();
     return ParsePrototype();
 }
 
-static unique_ptr<FunctionAST> ParseTopLevelExpr(shared_ptr<Scope> scope) {
-    SourceLocation FnLoc = CurLoc;
+unique_ptr<FunctionAST> Parser::ParseTopLevelExpr(shared_ptr<Scope> scope) {
+    SourceLocation FnLoc = TheLexer->CurLoc;
     if (auto E = ParseExpr(scope)) {
         string Name = "__anon_expr";
 //        string Name = "main";
@@ -453,9 +464,9 @@ static unique_ptr<FunctionAST> ParseTopLevelExpr(shared_ptr<Scope> scope) {
     return nullptr;
 }
 
-void InitializeModuleAndPassManager() {
+void Parser::InitializeModuleAndPassManager() {
     // Open a new module.
-    TheModule = make_unique<Module>("Sisp Demo 10", TheContext);
+    TheModule = make_unique<Module>("Sisp Demo 10", LLContext);
     TheModule->setDataLayout(TheJIT->getTargetMachine().createDataLayout());
 
     // Create a new pass manager attached to it.
@@ -475,7 +486,7 @@ void InitializeModuleAndPassManager() {
     TheFPM->doInitialization();
 }
 
-void HandleDefinition(shared_ptr<Scope> scope) {
+void Parser::HandleDefinition(shared_ptr<Scope> scope) {
     if (auto FnAST = ParseDefinition(scope)) {
         cout << "FnAST: " << FnAST->getName() << endl;
         if (auto *FnIR = FnAST->codegen()) {
@@ -493,7 +504,7 @@ void HandleDefinition(shared_ptr<Scope> scope) {
     }
 }
 
-void HandleExtern() {
+void Parser::HandleExtern() {
     if (auto ProtoAST = ParseExtern()) {
         if (auto *FnIR = ProtoAST->codegen()) {
 //            cout << "Read extern: ";
@@ -507,7 +518,7 @@ void HandleExtern() {
     }
 }
 
-void HandleTopLevelExpression(shared_ptr<Scope> scope) {
+void Parser::HandleTopLevelExpression(shared_ptr<Scope> scope) {
     // Evaluate a top-level expression into an anonymous function.
     if (auto FnAST = ParseTopLevelExpr(scope)) {
         if (FnAST->codegen()) {
@@ -536,4 +547,26 @@ void HandleTopLevelExpression(shared_ptr<Scope> scope) {
         // Skip token for error recovery.
         getNextToken();
     }
+}
+
+
+AllocaInst * Parser::CreateEntryBlockAlloca(Function *F, const string &VarName) {
+    IRBuilder<> TmpBlock(&F->getEntryBlock(),
+                         F->getEntryBlock().begin());
+    return TmpBlock.CreateAlloca(Type::getDoubleTy(TheParser->getContext()), 0, VarName.c_str());
+}
+
+Function * Parser::getFunction(std::string Name) {
+    // First, see if the function has already been added to the current module.
+    if (auto *F = TheModule->getFunction(Name))
+        return F;
+
+    // If not, check whether we can codegen the declaration from some existing
+    // prototype.
+    auto FI = FunctionProtos.find(Name);
+    if (FI != FunctionProtos.end())
+        return FI->second->codegen();
+
+    // If no existing prototype exists, return null.
+    return nullptr;
 }
