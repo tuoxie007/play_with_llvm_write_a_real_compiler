@@ -70,8 +70,11 @@ std::unique_ptr<ExprAST> Parser::ParseIdentifierExpr(shared_ptr<Scope> scope) {
 
     getNextToken(); // eat identifier.
 
-    if (TheLexer->CurTok != tok_left_paren) // Simple variable ref.
+    if (TheLexer->CurTok != tok_left_paren) {// Simple variable ref.
+        if (TheLexer->CurTok == tok_colon)
+            getNextToken();
         return make_unique<VariableExprAST>(scope, LitLoc, IdName);
+    }
 
     // Call.
     getNextToken(); // eat (
@@ -120,7 +123,7 @@ unique_ptr<ExprAST> Parser::ParsePrimary(shared_ptr<Scope> scope) {
         case tok_var:
             return ParseVarExpr(scope);
         default:
-            return LogError("unkown token when execepting an expression");
+            return LogError(std::string("unkown token when execepting an expression: ") + tok_tos(TheLexer->CurTok));
     }
 }
 
@@ -162,6 +165,7 @@ unique_ptr<ExprAST> Parser::ParseExpr(shared_ptr<Scope> scope) {
             Exprs.push_back(move(Expr));
         }
 
+        cout << "<<CompoundExprAST>>" << endl;
         return make_unique<CompoundExprAST>(localScope, move(Exprs));
     }
 

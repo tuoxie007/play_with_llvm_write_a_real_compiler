@@ -60,7 +60,6 @@ Value *VariableExprAST::codegen() {
 
     cout << "VariableExprAST::codegen()" << V << endl;
     SispDbgInfo.emitLocation(this);
-    V->getType()->getPointerElementType();
     return TheParser->getBuilder()->CreateLoad(V, Name.c_str());
 }
 
@@ -180,8 +179,7 @@ Value *ForExprAST::codegen() {
     TheParser->getBuilder()->CreateBr(LoopBlock);
     TheParser->getBuilder()->SetInsertPoint(LoopBlock);
 
-    unique_ptr<AllocaInst> AllocaP(Alloca);
-    getScope()->setVal(VarName, AllocaP);
+    getScope()->setVal(VarName, Alloca);
 
     if (!Body->codegen())
         return nullptr;
@@ -233,13 +231,12 @@ Value *VarExprAST::codegen() {
         TheParser->getBuilder()->CreateStore(InitVal, Alloca);
 
         cout << "Alloca " << Alloca << endl;
-        Alloca->getType()->getPointerElementType();
-        unique_ptr<AllocaInst> AllocaP(Alloca);
-        scope->setVal(VarName, AllocaP);
+        scope->setVal(VarName, Alloca);
     }
 
     SispDbgInfo.emitLocation(this);
 
+    // TODO JIT return run time value when JIT
     return Constant::getNullValue(Type::getDoubleTy(TheParser->getContext()));
 }
 
@@ -271,7 +268,7 @@ Value *CallExprAST::codegen() {
     // Look up the name in the global module table.
     Function *CalleeF = TheParser->getFunction(Callee);
     if (!CalleeF)
-        return LogErrorV((string("Unknown function referenced ") + Callee).c_str());
+        return LogErrorV((string("Unknown function referenced ") + Callee));
 
     // If argument mismatch error.
     if (CalleeF->arg_size() != Args.size())
@@ -353,8 +350,7 @@ Function *FunctionAST::codegen() {
                                 TheParser->getBuilder()->GetInsertBlock());
 
         TheParser->getBuilder()->CreateStore(&Arg, Alloca);
-        unique_ptr<AllocaInst> AllocaP(Alloca);
-        Body->getScope()->setVal(Arg.getName(), AllocaP);
+        Body->getScope()->setVal(Arg.getName(), Alloca);
     }
 
     SispDbgInfo.emitLocation(Body.get());

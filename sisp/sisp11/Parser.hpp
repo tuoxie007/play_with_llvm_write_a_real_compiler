@@ -46,7 +46,7 @@ class ExprAST;
 static unsigned gId = 0;
 class Scope {
     map<string, unique_ptr<ExprAST>> Vars;
-    map<string, unique_ptr<AllocaInst>> VarVals;
+    map<string, AllocaInst *> VarVals;
 
 public:
     shared_ptr<Scope> Parent;
@@ -58,15 +58,11 @@ public:
     void append(pair<string, unique_ptr<ExprAST>> V) {
         Vars.insert(move(V));
     }
-    void setVal(string var, unique_ptr<AllocaInst> val) {
-        VarVals[var] = move(val);
+    void setVal(string var, AllocaInst *val) {
+        VarVals[var] = val;
     }
     AllocaInst *getVal(string var) {
-        if (VarVals[var])
-            return VarVals[var].get();
-        if (Parent)
-            return Parent->getVal(var);
-        return nullptr;
+        return VarVals[var] ?: (Parent->getVal(var) ?: nullptr);
     }
 };
 
@@ -271,18 +267,18 @@ public:
     }
 };
 
-static unique_ptr<ExprAST> LogError(const char *Str) {
+static unique_ptr<ExprAST> LogError(std::string Str) {
     cerr << "LogError: " << Str << endl;
-    assert(false && Str);
+    assert(false && Str.c_str());
     return nullptr;
 }
 
-static unique_ptr<PrototypeAST> LogErrorP(const char *Str) {
+static unique_ptr<PrototypeAST> LogErrorP(std::string Str) {
     LogError(Str);
     return nullptr;
 }
 
-static Value *LogErrorV(const char *Str) {
+static Value *LogErrorV(std::string Str) {
     LogError(Str);
     return nullptr;
 }
