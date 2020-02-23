@@ -289,6 +289,9 @@ unique_ptr<ExprAST> Parser::ParseForExpr(shared_ptr<Scope> scope) {
     unique_ptr<ExprAST> Step;
     if (TheLexer->CurTok == tok_colon) {
         getNextToken();
+    }
+
+    if (TheLexer->CurTok == tok_number) {
         Step = ParseExpr(ForScope);
         if (!Step)
             return nullptr;

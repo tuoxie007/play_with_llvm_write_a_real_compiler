@@ -2813,10 +2813,10 @@
 		BFC34C1323F911430086F9EE /* Support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Support.h; sourceTree = "<group>"; };
 		BFC34C1D23FAC2EC0086F9EE /* test10.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test10.sisp; sourceTree = "<group>"; };
 		BFC34C1F23FD22930086F9EE /* Lexer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Lexer.cpp; sourceTree = "<group>"; };
-		BFC34C2023FD22930086F9EE /* Lexer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Lexer.hpp; sourceTree = "<group>"; };
-		BFC34C2223FD22B90086F9EE /* Parser.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Parser.cpp; sourceTree = "<group>"; };
-		BFC34C2323FD22B90086F9EE /* Parser.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Parser.hpp; sourceTree = "<group>"; };
-		BFC34C2523FD22D50086F9EE /* Codegen.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Codegen.cpp; sourceTree = "<group>"; };
+		BFC34C2023FD22930086F9EE /* Lexer.hpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.h; path = Lexer.hpp; sourceTree = "<group>"; };
+		BFC34C2223FD22B90086F9EE /* Parser.cpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Parser.cpp; sourceTree = "<group>"; };
+		BFC34C2323FD22B90086F9EE /* Parser.hpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.h; path = Parser.hpp; sourceTree = "<group>"; };
+		BFC34C2523FD22D50086F9EE /* Codegen.cpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Codegen.cpp; sourceTree = "<group>"; };
 		BFC34C2623FD22D50086F9EE /* Codegen.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Codegen.hpp; sourceTree = "<group>"; };
 		BFC34C2823FD23120086F9EE /* Driver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Driver.cpp; sourceTree = "<group>"; };
 		BFC34C2D23FD23EC0086F9EE /* test_def.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_def.sisp; sourceTree = "<group>"; };
@@ -2831,7 +2831,7 @@
 		BFC34C3623FD28400086F9EE /* test_var_assign.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_var_assign.sisp; sourceTree = "<group>"; };
 		BFC34C3723FD295C0086F9EE /* test_formula.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_formula.sisp; sourceTree = "<group>"; };
 		BFC34C3823FD3A7D0086F9EE /* test_compound.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_compound.sisp; sourceTree = "<group>"; };
-		BFC34C4423FE8C0D0086F9EE /* cli.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = cli.cpp; sourceTree = "<group>"; };
+		BFC34C4423FE8C0D0086F9EE /* cli.cpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cli.cpp; sourceTree = "<group>"; };
 		BFC34C4623FE90EB0086F9EE /* Driver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Driver.hpp; sourceTree = "<group>"; };
 		BFC34C4923FFB2A70086F9EE /* GlobalVars.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = GlobalVars.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -7173,6 +7173,10 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = W7PRP2Z9TY;
 				ENABLE_HARDENED_RUNTIME = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"PROJECT_DIR=\\\"\"$PROJECT_DIR\"\\\"",
+				);
 				HEADER_SEARCH_PATHS = /usr/local/Cellar/llvm/9.0.0/include;
 				LIBRARY_SEARCH_PATHS = /usr/local/Cellar/llvm/9.0.0/lib;
 				OTHER_CPLUSPLUSFLAGS = (
@@ -7340,6 +7344,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = W7PRP2Z9TY;
 				ENABLE_HARDENED_RUNTIME = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "PROJECT_DIR=\\\"\"$PROJECT_DIR\"\\\"";
 				HEADER_SEARCH_PATHS = /usr/local/Cellar/llvm/9.0.0/include;
 				LIBRARY_SEARCH_PATHS = /usr/local/Cellar/llvm/9.0.0/lib;
 				OTHER_CPLUSPLUSFLAGS = (

@@ -43,24 +43,30 @@ using namespace llvm;
 
 class ExprAST;
 
+static unsigned gId = 0;
 class Scope {
     map<string, unique_ptr<ExprAST>> Vars;
-    map<string, Value *> VarVals;
+    map<string, unique_ptr<AllocaInst>> VarVals;
 
 public:
     shared_ptr<Scope> Parent;
+    unsigned Id;
 
-    Scope() {}
-    Scope(shared_ptr<Scope> parent): Parent(parent) {}
+    Scope() { Id = ++ gId; }
+    Scope(shared_ptr<Scope> parent): Parent(parent) { Id = ++ gId; }
 
     void append(pair<string, unique_ptr<ExprAST>> V) {
         Vars.insert(move(V));
     }
-    void setVal(string var, Value * val) {
-        VarVals[var] = val;
+    void setVal(string var, unique_ptr<AllocaInst> val) {
+        VarVals[var] = move(val);
     }
-    Value *getVal(string var) {
-        return VarVals[var] ?: (Parent ? Parent->getVal(var) : nullptr);
+    AllocaInst *getVal(string var) {
+        if (VarVals[var])
+            return VarVals[var].get();
+        if (Parent)
+            return Parent->getVal(var);
+        return nullptr;
     }
 };
 

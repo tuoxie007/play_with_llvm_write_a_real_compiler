@@ -58,7 +58,9 @@ Value *VariableExprAST::codegen() {
     if (!V)
         LogError("Unkown variable name");
 
+    cout << "VariableExprAST::codegen()" << V << endl;
     SispDbgInfo.emitLocation(this);
+    V->getType()->getPointerElementType();
     return TheParser->getBuilder()->CreateLoad(V, Name.c_str());
 }
 
@@ -178,7 +180,8 @@ Value *ForExprAST::codegen() {
     TheParser->getBuilder()->CreateBr(LoopBlock);
     TheParser->getBuilder()->SetInsertPoint(LoopBlock);
 
-    getScope()->setVal(VarName, Alloca);
+    unique_ptr<AllocaInst> AllocaP(Alloca);
+    getScope()->setVal(VarName, AllocaP);
 
     if (!Body->codegen())
         return nullptr;
@@ -226,10 +229,13 @@ Value *VarExprAST::codegen() {
             InitVal = ConstantFP::get(TheParser->getContext(), APFloat(0.0));
         }
 
-        auto Alloca = Parser::CreateEntryBlockAlloca(F, VarName);
+        AllocaInst *Alloca = Parser::CreateEntryBlockAlloca(F, VarName);
         TheParser->getBuilder()->CreateStore(InitVal, Alloca);
 
-        scope->setVal(VarName, Alloca);
+        cout << "Alloca " << Alloca << endl;
+        Alloca->getType()->getPointerElementType();
+        unique_ptr<AllocaInst> AllocaP(Alloca);
+        scope->setVal(VarName, AllocaP);
     }
 
     SispDbgInfo.emitLocation(this);
@@ -347,7 +353,8 @@ Function *FunctionAST::codegen() {
                                 TheParser->getBuilder()->GetInsertBlock());
 
         TheParser->getBuilder()->CreateStore(&Arg, Alloca);
-        Body->getScope()->setVal(Arg.getName(), Alloca);
+        unique_ptr<AllocaInst> AllocaP(Alloca);
+        Body->getScope()->setVal(Arg.getName(), AllocaP);
     }
 
     SispDbgInfo.emitLocation(Body.get());

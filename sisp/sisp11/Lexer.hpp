@@ -53,6 +53,27 @@ typedef enum Token {
 
 } Token;
 
+static string tok_tos(Token t) {
+    if (t > 0) {
+        return to_string((char)t);
+    }
+    switch (t) {
+        case tok_eof: return "<eof>";
+        case tok_def: return "<def>";
+        case tok_extern: return "<extern>";
+        case tok_identifier: return "<id>";
+        case tok_number: return "<number>";
+        case tok_if: return "<if>";
+        case tok_else: return "<else>";
+        case tok_for: return "<for>";
+        case tok_in: return "<in>";
+        case tok_binary: return "<binary>";
+        case tok_unary: return "<unary>";
+        case tok_var: return "<var>";
+    }
+    return to_string((int)t);
+}
+
 struct SourceLocation {
     int Line;
     int Col;

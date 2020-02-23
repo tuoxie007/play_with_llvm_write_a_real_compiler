@@ -37,6 +37,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <iostream>
 
 class PrototypeAST;
 class ExprAST;
@@ -54,6 +55,9 @@ public:
     const PrototypeAST& getProto() const;
     const std::string& getName() const;
     llvm::Function *codegen();
+    void dumpAST() {
+        std::cout << "<FunctionAST:" << getName() << ">" << std::endl;
+    }
 };
 
 /// This will compile FnAST to IR, rename the function to add the given
