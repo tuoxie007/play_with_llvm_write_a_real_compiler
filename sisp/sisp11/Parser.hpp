@@ -41,6 +41,18 @@
 using namespace std;
 using namespace llvm;
 
+static inline std::string FormatString(const char *fmt,...)
+{
+#define FORMAT_MSG_BUFFER_SIZE (1024)
+    char szBuffer[FORMAT_MSG_BUFFER_SIZE + 1] = { 0 };
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(szBuffer, FORMAT_MSG_BUFFER_SIZE, fmt, args);
+    va_end(args);
+    std::string strRet  = szBuffer;
+    return strRet;
+}
+
 class ExprAST;
 
 static unsigned gId = 0;
@@ -85,6 +97,20 @@ public:
     shared_ptr<Scope> getScope() const { return scope; }
     void setScope(shared_ptr<Scope> newScope) { scope = newScope; }
 
+    virtual string dumpJSON() = 0;
+
+    static string listDumpJSON(vector<unique_ptr<ExprAST>> &Exprs) {
+        string JSON = "[";
+        for (auto E = Exprs.begin(); E != Exprs.end(); E ++) {
+            JSON += (*E)->dumpJSON();
+            if (E != Exprs.end() - 1) {
+                JSON += ",";
+            }
+        }
+        JSON += "]";
+        return JSON;
+    }
+
     virtual void dumpAST() {
         cout << "<<Expr>>" << "\n";
     }
@@ -94,31 +120,33 @@ static unique_ptr<ExprAST> ParseExpr(shared_ptr<Scope> scope);
 
 class VarExprAST : public ExprAST {
     vector<pair<string, unique_ptr<ExprAST>>> VarNames;
-//    unique_ptr<ExprAST> Body;
 
 public:
-    VarExprAST(shared_ptr<Scope> scope, vector<pair<string, unique_ptr<ExprAST>>> varNames
-//               , unique_ptr<ExprAST> body
-               )
+    VarExprAST(shared_ptr<Scope> scope, vector<pair<string, unique_ptr<ExprAST>>> varNames)
         : ExprAST(scope), VarNames(move(varNames)) {}
-//    , Body(move(body)) {}
 
     Value *codegen() override;
     vector<pair<string, unique_ptr<ExprAST>>> getVars() { return move(VarNames); }
     void dumpAST() override {
         cout << "<<VarExprAST>>" << "\n";
     }
+    string dumpJSON() override {
+//        return format("{} {}!", "Hello", "world", "something"); // OK, produces "Hello world!"
+        return FormatString("{`type`: `Var`, `Name`: `%s`}", VarNames[0].first.c_str());
+    }
 };
 
 class CompoundExprAST : public ExprAST {
     vector<unique_ptr<ExprAST>> Exprs;
-//    std::map<std::string, std::unique_ptr<ExprAST>> Scope;
 
 public:
     CompoundExprAST(shared_ptr<Scope> scope, vector<unique_ptr<ExprAST>> exprs): ExprAST(scope), Exprs(move(exprs)) {}
     Value *codegen() override;
     void dumpAST() override {
         cout << "<<CompoundExprAST>>" << "\n";
+    }
+    string dumpJSON() override {
+        return FormatString("{`type`: `Compound`, `Exprs`: %s]}", ExprAST::listDumpJSON(Exprs).c_str());
     }
 };
 
@@ -131,6 +159,9 @@ public:
     void dumpAST() override {
         cout << "<<NumberExprAST>>" << "\n";
     }
+    string dumpJSON() override {
+        return FormatString("{`type`: `Number`, `Val`: `%s`}", to_string(Val).c_str());
+    }
 };
 
 class VariableExprAST : public ExprAST {
@@ -142,6 +173,9 @@ public:
     string &getName() { return Name; }
     void dumpAST() override {
         cout << "<<VariableExprAST>>" << "\n";
+    }
+    string dumpJSON() override {
+        return FormatString("{`Type`: `Variable`, `Name`: `%s`}", Name.c_str());
     }
 };
 
@@ -160,6 +194,11 @@ public:
     void dumpAST() override {
         cout << "<<BinaryExprAST>>" << "\n";
     }
+    string dumpJSON() override {
+        string lhs = LHS->dumpJSON();
+        string rhs = RHS->dumpJSON();
+        return FormatString("{`Type`: `Binary`, `Operator`: `%c`, `LHS`: %s, `RHS`: %s}", Op, LHS->dumpJSON().c_str(), RHS->dumpJSON().c_str());
+    }
 };
 
 class CallExprAST : public ExprAST {
@@ -175,6 +214,9 @@ public:
     Value *codegen() override;
     void dumpAST() override {
         cout << "<<CallExprAST>>" << "\n";
+    }
+    string dumpJSON() override {
+        return FormatString("{`type`: `Call`, `Callee`: `%s`, `Args`: %s}", Callee.c_str(), ExprAST::listDumpJSON(Args).c_str());
     }
 };
 
@@ -215,6 +257,17 @@ public:
     void dumpAST() {
         cout << "<<PrototypeAST>>" << "\n";
     }
+    string dumpJSON() {
+        string ArgsJSON = "[";
+        for (auto E = Args.begin(); E != Args.end(); E ++) {
+            ArgsJSON += (*E);
+            if (E != Args.end() - 1) {
+                ArgsJSON += (*E);
+            }
+        }
+        ArgsJSON += "]";
+        return FormatString("{`type`: `Prototype`, `Name`: `%s`, `Args`: %s}", Name.c_str(), ArgsJSON.c_str());
+    }
 };
 
 class IfExprAST : public ExprAST {
@@ -231,6 +284,9 @@ public:
     Value * codegen() override;
     void dumpAST() override {
         cout << "<<IfExprAST>>" << "\n";
+    }
+    string dumpJSON() override {
+        return FormatString("{`type`: `If`, `Cond`: %s, `Then`: %s, `Else`: %s}", Cond->dumpJSON().c_str(), Then->dumpJSON().c_str(), Else->dumpJSON().c_str());
     }
 };
 
@@ -251,6 +307,9 @@ public:
     void dumpAST() override {
         cout << "<<ForExprAST>>" << "\n";
     }
+    string dumpJSON() override {
+        return FormatString("{`type`: `For`, `VarName`: %s, `Start`: %s, `End`: %s, `Step`: %s, `Body`: %s}", VarName.c_str(), Start->dumpJSON().c_str(), End->dumpJSON().c_str(), Step->dumpJSON().c_str(), Body->dumpJSON().c_str());
+    }
 };
 
 class UnaryExprAST : public ExprAST {
@@ -264,6 +323,9 @@ public:
     Value * codegen() override;
     void dumpAST() override {
         cout << "<<UnaryExprAST>>" << "\n";
+    }
+    string dumpJSON() override {
+        return FormatString("{`type`: `Unary`, `Operand`: %s", Operand->dumpJSON().c_str());
     }
 };
 

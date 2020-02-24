@@ -13,19 +13,13 @@ using namespace std;
 
 #define make_unique std::make_unique
 
-//LLVMContext TheContext;
 std::unique_ptr<DIBuilder> DBuilder;
 DebugInfo SispDbgInfo;
 unique_ptr<Parser> TheParser;
-//unique_ptr<Module> TheModule;
-//std::unique_ptr<llvm::orc::SispJIT> TheJIT;
-//std::unique_ptr<legacy::FunctionPassManager> TheFPM;
-//std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
 
-//map<char, int> BinOpPrecedence;
-
-//unique_ptr<ExprAST> Parser::ParseIfExpr(shared_ptr<Scope> scope);
-//static unique_ptr<ExprAST> ParseForExpr(shared_ptr<Scope> scope);
+string FunctionAST::dumpJSON() {
+    return FormatString("{`type`: `Function`, `Prototype`: %s, `Body`: %s", Proto->dumpJSON().c_str(), Body->dumpJSON().c_str());
+}
 
 ExprAST::ExprAST(shared_ptr<Scope> scope) {
     this->scope = scope;
@@ -495,7 +489,7 @@ void Parser::InitializeModuleAndPassManager() {
 
 void Parser::HandleDefinition(shared_ptr<Scope> scope) {
     if (auto FnAST = ParseDefinition(scope)) {
-        cout << "FnAST: " << FnAST->getName() << endl;
+        cout << FnAST->dumpJSON() << endl;
         if (auto *FnIR = FnAST->codegen()) {
 //            cout << "Read function definition:";
 //            FnIR->print(outs());
@@ -513,6 +507,7 @@ void Parser::HandleDefinition(shared_ptr<Scope> scope) {
 
 void Parser::HandleExtern() {
     if (auto ProtoAST = ParseExtern()) {
+        cout << ProtoAST->dumpJSON() << endl;
         if (auto *FnIR = ProtoAST->codegen()) {
 //            cout << "Read extern: ";
 //            FnIR->print(outs());
@@ -528,6 +523,7 @@ void Parser::HandleExtern() {
 void Parser::HandleTopLevelExpression(shared_ptr<Scope> scope) {
     // Evaluate a top-level expression into an anonymous function.
     if (auto FnAST = ParseTopLevelExpr(scope)) {
+        cout << FnAST->dumpJSON() << endl;
         if (FnAST->codegen()) {
             if (JITEnabled) {
                 // JIT the module containing the anonymous expression, keeping a handle so

@@ -232,6 +232,10 @@ Value *VarExprAST::codegen() {
 
         cout << "Alloca " << Alloca << endl;
         scope->setVal(VarName, Alloca);
+
+        if (i == e) {
+            return Alloca;
+        }
     }
 
     SispDbgInfo.emitLocation(this);
@@ -255,12 +259,13 @@ Value *UnaryExprAST::codegen() {
 
 Value *CompoundExprAST::codegen() {
     int i = 0;
+    Value *RetVal;
     for (auto Expr = Exprs.begin(); Expr != Exprs.end(); Expr ++) {
         cout << "subExpr " << to_string(i++) << endl;
-        if (!(*Expr)->codegen())
+        if (!(RetVal = (*Expr)->codegen()))
             return nullptr;
     }
-    return Constant::getNullValue(Type::getDoubleTy(TheParser->getContext()));
+    return RetVal ?: Constant::getNullValue(Type::getDoubleTy(TheParser->getContext()));;
 }
 
 Value *CallExprAST::codegen() {

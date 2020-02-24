@@ -58,6 +58,7 @@ public:
     void dumpAST() {
         std::cout << "<FunctionAST:" << getName() << ">" << std::endl;
     }
+    std::string dumpJSON();
 };
 
 /// This will compile FnAST to IR, rename the function to add the given
