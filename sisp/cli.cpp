@@ -12,7 +12,7 @@
 #include <string>
 #include <filesystem>
 
-#define TEST "test_extern.sisp"
+#define TEST "test_compound.sisp"
 
 #ifdef TEST
 

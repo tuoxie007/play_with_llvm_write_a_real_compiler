@@ -218,9 +218,9 @@ unique_ptr<ExprAST> Parser::ParseIfExpr(shared_ptr<Scope> scope) {
     if (!Cond)
         return nullptr;
 
-    if (TheLexer->CurTok != tok_then)
-        return LogError("expected then");
-    getNextToken();
+    if (TheLexer->CurTok == tok_then)
+//        return LogError("expected then");
+        getNextToken();
 
     cout << "## then" << endl;
 
@@ -418,14 +418,18 @@ unique_ptr<PrototypeAST> Parser::ParsePrototype() {
     }
 
     vector<string> ArgNames;
-    while (getNextToken() == tok_identifier) {
+    getNextToken();
+    while (TheLexer->CurTok == tok_identifier) {
         ArgNames.push_back(TheLexer->IdentifierStr);
+        getNextToken();
+        if (TheLexer->CurTok == tok_comma)
+            getNextToken();
     }
     if (isspace(TheLexer->CurTok)) {
         getNextToken();
     }
     if (TheLexer->CurTok != tok_right_paren) {
-        return LogErrorP("Expected ')' in prototype");
+        return LogErrorP(string("Expected ')' in prototype but ") + (char)TheLexer->CurTok);
     }
 
     getNextToken();
