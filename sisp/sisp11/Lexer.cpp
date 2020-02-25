@@ -72,6 +72,14 @@ int Lexer::gettok() {
             return tok_binary;
         if (IdentifierStr == "var")
             return tok_var;
+        if (IdentifierStr == "bool")
+            return tok_type_bool;
+        if (IdentifierStr == "int")
+            return tok_type_int;
+        if (IdentifierStr == "float")
+            return tok_type_float;
+        if (IdentifierStr == "string")
+            return tok_type_string;
 
         return tok_identifier;
     }

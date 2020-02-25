@@ -100,8 +100,6 @@ std::unique_ptr<ExprAST> Parser::ParseIdentifierExpr(shared_ptr<Scope> scope) {
     return make_unique<CallExprAST>(scope, TheLexer->CurLoc, IdName, std::move(Args));
 }
 
-//unique_ptr<ExprAST> ParseVarExpr(shared_ptr<Scope> scope);
-
 unique_ptr<ExprAST> Parser::ParsePrimary(shared_ptr<Scope> scope) {
     switch (TheLexer->CurTok) {
         case tok_identifier:
@@ -115,6 +113,13 @@ unique_ptr<ExprAST> Parser::ParsePrimary(shared_ptr<Scope> scope) {
         case tok_for:
             return ParseForExpr(scope);
         case tok_var:
+            assert(false && "invalid keyword var");
+            break;
+        case tok_type_bool:
+        case tok_type_int:
+        case tok_type_float:
+        case tok_type_string:
+        case tok_type_object:
             return ParseVarExpr(scope);
         default:
             return LogError(std::string("unkown token when execepting an expression: ") + tok_tos(TheLexer->CurTok));
@@ -335,41 +340,29 @@ unique_ptr<ExprAST> Parser::ParseUnary(shared_ptr<Scope> scope) {
 }
 
 unique_ptr<ExprAST> Parser::ParseVarExpr(shared_ptr<Scope> scope) {
+
+    Token Type = TheLexer->CurTok;
     getNextToken();
 
-    vector<pair<string, unique_ptr<ExprAST>>> VarNames;
-
-    if (TheLexer->CurTok != tok_identifier)
-        return LogError("expected identifier after var");
-
-    while (true) {
-        auto Name = TheLexer->IdentifierStr;
-        getNextToken();
-
-        unique_ptr<ExprAST> Init;
-        if (TheLexer->CurTok == '=') {
-            getNextToken();
-
-            Init = ParseExpr(scope);
-            if (!Init)
-                return nullptr;
-        }
-
-        VarNames.push_back(make_pair(Name, move(Init)));
-
-        if (TheLexer->CurTok != ',')
-            break;
-        getNextToken();
-
-        if (TheLexer->CurTok != tok_identifier)
-            return LogError("expected identifier list after var");
+    if (TheLexer->CurTok != tok_identifier) {
+        return LogError("expected id after type");
     }
+    string Name = TheLexer->IdentifierStr;
+    getNextToken();
 
+    unique_ptr<ExprAST> Init;
+    if (TheLexer->CurTok == tok_equal) {
+        getNextToken();
 
+        Init = ParseExpr(scope);
+        if (!Init)
+            return nullptr;
+    }
     if (TheLexer->CurTok == tok_colon) {
         getNextToken();
     }
-    return make_unique<VarExprAST>(scope, move(VarNames)/*, move(Body)*/);
+
+    return make_unique<VarExprAST>(scope, Type, Name, move(Init));
 }
 
 unique_ptr<PrototypeAST> Parser::ParsePrototype() {
@@ -417,11 +410,13 @@ unique_ptr<PrototypeAST> Parser::ParsePrototype() {
         return LogErrorP("Expected '(' in prototype");
     }
 
-    vector<string> ArgNames;
+    vector<unique_ptr<VarExprAST>> Args;
     getNextToken();
-    while (TheLexer->CurTok == tok_identifier) {
-        ArgNames.push_back(TheLexer->IdentifierStr);
-        getNextToken();
+    auto scope = make_shared<Scope>();
+    while (TheLexer->getVarType()) {
+        auto ArgE = ParseVarExpr(scope);
+        auto Arg = unique_ptr<VarExprAST>(static_cast<VarExprAST *>(ArgE.release()));
+        Args.push_back(move(Arg));
         if (TheLexer->CurTok == tok_comma)
             getNextToken();
     }
@@ -434,10 +429,10 @@ unique_ptr<PrototypeAST> Parser::ParsePrototype() {
 
     getNextToken();
 
-    if (Kind && ArgNames.size() != Kind)
+    if (Kind && Args.size() != Kind)
         return LogErrorP("Invalid number of operands for operator");
 
-    return make_unique<PrototypeAST>(FnLoc, FnName, move(ArgNames), Kind != 0, BinaryPrecedence);
+    return make_unique<PrototypeAST>(FnLoc, FnName, move(Args), Kind != 0, BinaryPrecedence);
 }
 
 unique_ptr<FunctionAST> Parser::ParseDefinition(shared_ptr<Scope> scope) {
@@ -463,7 +458,7 @@ unique_ptr<FunctionAST> Parser::ParseTopLevelExpr(shared_ptr<Scope> scope) {
     if (auto E = ParseExpr(scope)) {
         string Name = "__anon_expr";
 //        string Name = "main";
-        auto Proto = make_unique<PrototypeAST>(FnLoc, Name, vector<string>());
+        auto Proto = make_unique<PrototypeAST>(FnLoc, Name, vector<unique_ptr<VarExprAST>>());
         return make_unique<FunctionAST>(move(Proto), move(E));
     }
     return nullptr;

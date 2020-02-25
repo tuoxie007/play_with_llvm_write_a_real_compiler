@@ -27,6 +27,11 @@ typedef enum Token {
     tok_binary = -11,
     tok_unary = -12,
     tok_var = -13,
+    tok_type_bool = -14,
+    tok_type_int = -15,
+    tok_type_float = -16,
+    tok_type_string = -17,
+    tok_type_object = -18,
 
     tok_left_paren = '(',
     tok_right_paren = ')',
@@ -70,24 +75,19 @@ static string tok_tos(Token t) {
         case tok_binary: return "<binary>";
         case tok_unary: return "<unary>";
         case tok_var: return "<var>";
+        case tok_type_bool: return "<bool>";
+        case tok_type_int: return "<int>";
+        case tok_type_float: return "<float>";
+        case tok_type_string: return "<string>";
+        case tok_type_object: return "<object>";
+        default: return to_string((int)t);
     }
-    return to_string((int)t);
 }
 
 struct SourceLocation {
     int Line;
     int Col;
 };
-
-//extern SourceLocation CurLoc;
-//extern SourceLocation LexLoc;
-//
-//extern Token CurTok;
-//extern int getNextToken();
-//
-//extern string IdentifierStr;
-//extern double NumVal;
-//extern string TheCode;
 
 class Lexer {
 public:
@@ -110,6 +110,17 @@ public:
     }
     int GetChar();
     int gettok();
+
+    Token getVarType() {
+        if (CurTok == tok_type_bool ||
+            CurTok == tok_type_int ||
+            CurTok == tok_type_float ||
+            CurTok == tok_type_string ||
+            CurTok == tok_type_object) {
+            return CurTok;
+        }
+        return (Token)0;
+    }
 };
 
 #endif /* Lexer_hpp */

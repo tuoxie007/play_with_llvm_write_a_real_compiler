@@ -215,33 +215,21 @@ Value *VarExprAST::codegen() {
 
     auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
 
-    for (unsigned long i = 0, e = VarNames.size(); i != e; i++) {
-        string &VarName = VarNames[i].first;
-        auto Init = VarNames[i].second.get();
-        Value *InitVal;
-        if (Init) {
-            InitVal = Init->codegen();
-            if (!InitVal)
-                return nullptr;
-        } else {
-            InitVal = ConstantFP::get(TheParser->getContext(), APFloat(0.0));
-        }
-
-        AllocaInst *Alloca = Parser::CreateEntryBlockAlloca(F, VarName);
-        TheParser->getBuilder()->CreateStore(InitVal, Alloca);
-
-        cout << "Alloca " << Alloca << endl;
-        scope->setVal(VarName, Alloca);
-
-        if (i == e) {
-            return Alloca;
-        }
+    Value *InitVal;
+    if (Init) {
+        InitVal = Init->codegen();
+        if (!InitVal)
+            return nullptr;
+    } else {
+        InitVal = ConstantFP::get(TheParser->getContext(), APFloat(0.0));
     }
 
-    SispDbgInfo.emitLocation(this);
+    AllocaInst *Alloca = Parser::CreateEntryBlockAlloca(F, Name);
+    TheParser->getBuilder()->CreateStore(InitVal, Alloca);
 
-    // TODO JIT return run time value when JIT
-    return Constant::getNullValue(Type::getDoubleTy(TheParser->getContext()));
+    scope->setVal(Name, Alloca);
+
+    return Alloca;
 }
 
 Value *UnaryExprAST::codegen() {
@@ -295,7 +283,7 @@ Function *PrototypeAST::codegen() {
     Function *F = Function::Create(FT, Function::ExternalLinkage, Name, TheParser->getModule());
     unsigned long Idx = 0;
     for (auto &Arg : F->args())
-        Arg.setName(Args[Idx++]);
+        Arg.setName(Args[Idx++]->getName());
     return F;
 }
 

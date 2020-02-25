@@ -119,20 +119,29 @@ public:
 static unique_ptr<ExprAST> ParseExpr(shared_ptr<Scope> scope);
 
 class VarExprAST : public ExprAST {
-    vector<pair<string, unique_ptr<ExprAST>>> VarNames;
+//    vector<pair<string, unique_ptr<ExprAST>>> VarNames;
+    string Name;
+    Token Type;
+    unique_ptr<ExprAST> Init;
 
 public:
-    VarExprAST(shared_ptr<Scope> scope, vector<pair<string, unique_ptr<ExprAST>>> varNames)
-        : ExprAST(scope), VarNames(move(varNames)) {}
+//    VarExprAST(shared_ptr<Scope> scope, vector<pair<string, unique_ptr<ExprAST>>> varNames)
+//        : ExprAST(scope), VarNames(move(varNames)) {}
+    VarExprAST(shared_ptr<Scope> scope, Token type, string name, unique_ptr<ExprAST> init)
+        : ExprAST(scope), Type(type), Name(name), Init(move(init)) {}
 
     Value *codegen() override;
-    vector<pair<string, unique_ptr<ExprAST>>> getVars() { return move(VarNames); }
+//    vector<pair<string, unique_ptr<ExprAST>>> getVars() { return move(VarNames); }
+    const string &getName() const { return Name; }
+    const Token getType() const { return Type; }
+    ExprAST * getInit() const { return Init.get(); }
+
     void dumpAST() override {
         cout << "<<VarExprAST>>" << "\n";
     }
     string dumpJSON() override {
 //        return format("{} {}!", "Hello", "world", "something"); // OK, produces "Hello world!"
-        return FormatString("{`type`: `Var`, `Name`: `%s`}", VarNames[0].first.c_str());
+        return FormatString("{`type`: `Var`, `Name`: `%s`}", Name.c_str());
     }
 };
 
@@ -223,14 +232,14 @@ public:
 class PrototypeAST {
     SourceLocation Loc;
     string Name;
-    vector<string> Args;
+    vector<unique_ptr<VarExprAST>> Args;
     bool IsOperator;
     unsigned Precedence;
 
 public:
     PrototypeAST(SourceLocation loc,
                  string &name,
-                 vector<string> args,
+                 vector<unique_ptr<VarExprAST>> args,
                  bool isOperator = false,
                  unsigned precedence = 0)
         :
@@ -260,9 +269,9 @@ public:
     string dumpJSON() {
         string ArgsJSON = "[";
         for (auto E = Args.begin(); E != Args.end(); E ++) {
-            ArgsJSON += (*E);
+            ArgsJSON += (*E)->dumpJSON();
             if (E != Args.end() - 1) {
-                ArgsJSON += (*E);
+                ArgsJSON += ",";
             }
         }
         ArgsJSON += "]";
