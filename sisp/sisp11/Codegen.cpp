@@ -8,6 +8,8 @@
 
 #include "Codegen.hpp"
 
+#include <vector>
+
 static vector<DIScope *> LexicalBlocks;
 
 DIType *DebugInfo::getDoubleTy() {
@@ -48,7 +50,12 @@ const std::string& FunctionAST::getName() const {
     return Proto->getName();
 }
 
-Value *NumberExprAST::codegen() {
+Value *IntegerLiteralAST::codegen() {
+    SispDbgInfo.emitLocation(this);
+    return ConstantInt::get(TheParser->getContext(), APInt(8, Val));
+}
+
+Value *FloatLiteralAST::codegen() {
     SispDbgInfo.emitLocation(this);
     return ConstantFP::get(TheParser->getContext(), APFloat(Val));
 }
@@ -60,7 +67,7 @@ Value *VariableExprAST::codegen() {
 
     cout << "VariableExprAST::codegen()" << V << endl;
     SispDbgInfo.emitLocation(this);
-    return TheParser->getBuilder()->CreateLoad(V, Name.c_str());
+    return TheParser->getBuilder()->CreateLoad(V, Name);
 }
 
 Value *BinaryExprAST::codegen() {
@@ -92,14 +99,34 @@ Value *BinaryExprAST::codegen() {
 
     switch (Op) {
         case tok_add:
-            return TheParser->getBuilder()->CreateFAdd(L, R, "addtmp");
+            if (L->getType()->isFloatTy() || L->getType()->isFloatTy())
+                return TheParser->getBuilder()->CreateFAdd(L, R, "addtmp");
+            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
+                return TheParser->getBuilder()->CreateAdd(L, R, "addtmp");
         case tok_sub:
-            return TheParser->getBuilder()->CreateFSub(L, R, "subtmp");
+            if (L->getType()->isFloatTy() || L->getType()->isFloatTy())
+                return TheParser->getBuilder()->CreateFSub(L, R, "subtmp");
+            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
+                return TheParser->getBuilder()->CreateSub(L, R, "subtmp");
         case tok_mul:
-            return TheParser->getBuilder()->CreateFMul(L, R, "multmp");
+            if (L->getType()->isFloatTy() || L->getType()->isFloatTy())
+                return TheParser->getBuilder()->CreateFMul(L, R, "multmp");
+            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
+                return TheParser->getBuilder()->CreateMul(L, R, "multmp");
         case tok_less:
-            L = TheParser->getBuilder()->CreateFCmpULT(L, R, "cmptmp");
-            return TheParser->getBuilder()->CreateUIToFP(L, Type::getDoubleTy(TheParser->getContext()));
+            if (L->getType()->isFloatTy() || L->getType()->isFloatTy())
+                return TheParser->getBuilder()->CreateFCmpULT(L, R, "lttmp");
+            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
+                return TheParser->getBuilder()->CreateICmpULT(L, R, "lttmp");
+            else
+                assert(false && "not implemented");
+        case tok_greater:
+            if (L->getType()->isFloatTy() || L->getType()->isFloatTy())
+                return TheParser->getBuilder()->CreateFCmpUGT(L, R, "gttmp");
+            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
+                return TheParser->getBuilder()->CreateICmpUGT(L, R, "gttmp");
+            else
+                assert(false && "not implemented");
         default:
         {
             auto F = TheParser->getFunction(string("binary") + Op);
@@ -115,8 +142,7 @@ Value *IfExprAST::codegen() {
     auto CondV = Cond->codegen();
     if (!CondV)
         return nullptr;
-
-    CondV = TheParser->getBuilder()->CreateFCmpONE(CondV, ConstantFP::get(TheParser->getContext(), APFloat(0.0)), "ifcond");
+    CondV = TheParser->getBuilder()->CreateICmpNE(CondV, ConstantInt::get(TheParser->getContext(), APInt(1, 0)), "ifcond");
 
     auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
 
@@ -150,7 +176,7 @@ Value *IfExprAST::codegen() {
     F->getBasicBlockList().push_back(MergeBlock);
     TheParser->getBuilder()->SetInsertPoint(MergeBlock);
 
-    auto PN = TheParser->getBuilder()->CreatePHI(Type::getDoubleTy(TheParser->getContext()), 2, "iftmp");
+    auto PN = TheParser->getBuilder()->CreatePHI(Type::getInt8Ty(TheParser->getContext()), 2, "iftmp");
 
     PN->addIncoming(ThenV, ThenBlock);
     PN->addIncoming(ElseV, ElseBlock);
@@ -159,27 +185,29 @@ Value *IfExprAST::codegen() {
 }
 
 Value *ForExprAST::codegen() {
-    auto StartValue = Start->codegen();
-    if (!StartValue)
-        return nullptr;
+//    auto StartValue = Start->codegen();
+//    if (!StartValue)
+//        return nullptr;
 
     auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
 
-    auto Alloca = Parser::CreateEntryBlockAlloca(F, VarName);
+//    auto Alloca = Parser::CreateEntryBlockAlloca(F, Var.get());
 
     SispDbgInfo.emitLocation(this);
 
-    auto StartVal = Start->codegen();
-    if (!Start)
+    auto StartVal = Var->codegen();
+    if (!StartVal)
         return nullptr;
 
-    TheParser->getBuilder()->CreateStore(StartVal, Alloca);
+    auto Alloca = getScope()->getVal(Var->getName());
+
+//    TheParser->getBuilder()->CreateStore(StartVal, Alloca);
 
     auto LoopBlock = BasicBlock::Create(TheParser->getContext(), "loop", F);
     TheParser->getBuilder()->CreateBr(LoopBlock);
     TheParser->getBuilder()->SetInsertPoint(LoopBlock);
 
-    getScope()->setVal(VarName, Alloca);
+//    getScope()->setVal(Var->getName(), Alloca);
 
     if (!Body->codegen())
         return nullptr;
@@ -190,28 +218,27 @@ Value *ForExprAST::codegen() {
         if (!StepVal)
             return nullptr;
     } else {
-        StepVal = ConstantFP::get(TheParser->getContext(), APFloat(1.0));
+        StepVal = ConstantInt::get(TheParser->getContext(), APInt(1, 0));
     }
 
     auto EndCond = End->codegen();
     if (!EndCond)
         return nullptr;
 
-    auto CurVar = TheParser->getBuilder()->CreateLoad(Alloca, VarName.c_str());
-    auto NextVar = TheParser->getBuilder()->CreateFAdd(CurVar, StepVal, "nextvar");
+    auto CurVar = TheParser->getBuilder()->CreateLoad(Alloca, Var->getName());
+    auto NextVar = TheParser->getBuilder()->CreateAdd(CurVar, StepVal, "nextvar");
     TheParser->getBuilder()->CreateStore(NextVar, Alloca);
 
-    EndCond = TheParser->getBuilder()->CreateFCmpONE(EndCond, ConstantFP::get(TheParser->getContext(), APFloat(0.0)), "loopcond");
+    EndCond = TheParser->getBuilder()->CreateICmpNE(EndCond, ConstantInt::get(TheParser->getContext(), APInt(1, 0)), "loopcond");
 
     auto AfterBlock = BasicBlock::Create(TheParser->getContext(), "afterloop", F);
     TheParser->getBuilder()->CreateCondBr(EndCond, LoopBlock, AfterBlock);
     TheParser->getBuilder()->SetInsertPoint(AfterBlock);
 
-    return Constant::getNullValue(Type::getDoubleTy(TheParser->getContext()));
+    return Constant::getNullValue(Type::getInt8Ty(TheParser->getContext()));
 }
 
 Value *VarExprAST::codegen() {
-//    vector<AllocaInst *> OldBindings;
 
     auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
 
@@ -220,11 +247,17 @@ Value *VarExprAST::codegen() {
         InitVal = Init->codegen();
         if (!InitVal)
             return nullptr;
-    } else {
+    } else if (Type == tok_type_float) {
         InitVal = ConstantFP::get(TheParser->getContext(), APFloat(0.0));
+    } else if (Type == tok_type_bool) {
+        InitVal = ConstantInt::get(TheParser->getContext(), APInt(1, 0));
+    } else if (Type == tok_type_int) {
+        InitVal = ConstantInt::get(TheParser->getContext(), APInt(8, 0));
+    } else {
+        assert(false && "not implemented type");
     }
 
-    AllocaInst *Alloca = Parser::CreateEntryBlockAlloca(F, Name);
+    AllocaInst *Alloca = Parser::CreateEntryBlockAlloca(F, this);
     TheParser->getBuilder()->CreateStore(InitVal, Alloca);
 
     scope->setVal(Name, Alloca);
@@ -247,13 +280,14 @@ Value *UnaryExprAST::codegen() {
 
 Value *CompoundExprAST::codegen() {
     int i = 0;
-    Value *RetVal;
+    Value *RetVal = nullptr;
     for (auto Expr = Exprs.begin(); Expr != Exprs.end(); Expr ++) {
         cout << "subExpr " << to_string(i++) << endl;
-        if (!(RetVal = (*Expr)->codegen()))
+        RetVal = (*Expr)->codegen();
+        if (!RetVal)
             return nullptr;
     }
-    return RetVal ?: Constant::getNullValue(Type::getDoubleTy(TheParser->getContext()));;
+    return RetVal ?: Constant::getNullValue(Type::getInt64Ty(TheParser->getContext()));;
 }
 
 Value *CallExprAST::codegen() {
@@ -278,8 +312,13 @@ Value *CallExprAST::codegen() {
 }
 
 Function *PrototypeAST::codegen() {
-    vector<Type *> Doubles(Args.size(), Type::getDoubleTy(TheParser->getContext()));
-    FunctionType *FT = FunctionType::get(Type::getDoubleTy(TheParser->getContext()), Doubles, false);
+    vector<llvm::Type *> ArgTypes;
+    for (auto E = Args.begin(); E != Args.end(); E ++) {
+        llvm::Type *ArgType = getType((*E)->getType(), TheParser->getContext());
+        ArgTypes.push_back(ArgType);
+    }
+    llvm::Type *TheRetType = getType(RetType, TheParser->getContext());
+    FunctionType *FT = FunctionType::get(TheRetType, ArgTypes, false);
     Function *F = Function::Create(FT, Function::ExternalLinkage, Name, TheParser->getModule());
     unsigned long Idx = 0;
     for (auto &Arg : F->args())
@@ -331,7 +370,7 @@ Function *FunctionAST::codegen() {
 
     unsigned ArgIdx = 0;
     for (auto &Arg : F->args()) {
-        auto Alloca = Parser::CreateEntryBlockAlloca(F, Arg.getName());
+        auto Alloca = Parser::CreateEntryBlockAlloca(F, Arg.getType(), Arg.getName());
 
         // Create a debug descriptor for the variable.
         DILocalVariable *D = DBuilder->createParameterVariable(

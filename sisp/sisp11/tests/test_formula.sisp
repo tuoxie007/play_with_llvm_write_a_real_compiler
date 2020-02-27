@@ -1,5 +1,5 @@
 
-def sum(x, y) x + y;
+int sum(int x, int y) x + y;
 
 sum(12, 21) + 9;
 

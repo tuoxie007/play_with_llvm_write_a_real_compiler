@@ -12,7 +12,17 @@
 #include <string>
 #include <filesystem>
 
-#define TEST "test_compound.sisp"
+//#define TEST "test_def.sisp"
+//#define TEST "test_extern.sisp"
+//#define TEST "test_constant.sisp"
+//#define TEST "test_math.sisp"
+//#define TEST "test_call.sisp"
+//#define TEST "test_var.sisp"
+//#define TEST "test_var_init.sisp"
+//#define TEST "test_var_assign.sisp"
+//#define TEST "test_ifcond.sisp"
+//#define TEST "test_forloop.sisp"
+#define TEST "test_formula.sisp"
 
 #ifdef TEST
 

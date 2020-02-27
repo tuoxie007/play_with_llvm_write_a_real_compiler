@@ -1,5 +1,5 @@
 
-extern printd(x);
+extern int printd(int x);
 
 printd(42);
 

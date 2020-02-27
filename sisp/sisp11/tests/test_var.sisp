@@ -1,5 +1,5 @@
 
-var x;
+bool x;
 x;
 
 # => 0

@@ -15,10 +15,10 @@ using namespace std;
 
 typedef enum Token {
     tok_eof = -1,
-    tok_def = -2,
+//    tok_def = -2,
     tok_extern = -3,
     tok_identifier = -4,
-    tok_number = -5,
+//    tok_number = -5,
     tok_if = -6,
     tok_then = -7,
     tok_else = -8,
@@ -32,12 +32,14 @@ typedef enum Token {
     tok_type_float = -16,
     tok_type_string = -17,
     tok_type_object = -18,
+    tok_integer_literal = -19,
+    tok_float_literal = -20,
 
     tok_left_paren = '(',
     tok_right_paren = ')',
     tok_equal = '=',
     tok_less = '<',
-    tok_great = '>',
+    tok_greater = '>',
     tok_comma = ',',
     tok_colon = ';',
     tok_hash = '#',
@@ -64,10 +66,10 @@ static string tok_tos(Token t) {
     }
     switch (t) {
         case tok_eof: return "<eof>";
-        case tok_def: return "<def>";
+//        case tok_def: return "<def>";
         case tok_extern: return "<extern>";
         case tok_identifier: return "<id>";
-        case tok_number: return "<number>";
+//        case tok_number: return "<number>";
         case tok_if: return "<if>";
         case tok_else: return "<else>";
         case tok_for: return "<for>";
@@ -92,24 +94,24 @@ struct SourceLocation {
 class Lexer {
 public:
 
-    SourceLocation CurLoc;
-    SourceLocation LexLoc = {1, 0};
+    SourceLocation CurLoc = {1, 0};
 
     Token CurTok = (Token)0;
     string::size_type Index = 0;
-    char LastChar = (char)tok_space;
+    Token LastChar = tok_space;
 
     string IdentifierStr;
-    double NumVal;
+//    double NumVal;
+    long IntegerVal;
+    double FloatVal;
     string TheCode;
 
     Lexer(string &code): TheCode(code) {}
-    Token getNextToken();
+    Token getNextToken(unsigned ForwardStep = 0);
     Token getCurToken() {
         return CurTok;
     }
-    int GetChar();
-    int gettok();
+    Token GetChar();
 
     Token getVarType() {
         if (CurTok == tok_type_bool ||

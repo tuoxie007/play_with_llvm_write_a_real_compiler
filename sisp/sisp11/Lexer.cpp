@@ -11,109 +11,114 @@
 
 using namespace std;
 
-//SourceLocation CurLoc;
-//SourceLocation LexLoc = {1, 0};
-//
-//Token CurTok;
-//
-//string IdentifierStr;
-//double NumVal;
-//string TheCode;
-
-int Lexer::GetChar() {
+Token Lexer::GetChar() {
     if (Index >= TheCode.length())
-        return EOF;
-    char CurChar = TheCode.at(Index++);
-//    cout << "getchar [" << string(1, CurChar) << "]" << endl;
+        return (Token)EOF;
+    Token CurChar = (Token)TheCode.at(Index++);
+    cout << "getchar [" << string(1, CurChar) << "]" << endl;
 
     if (CurChar == tok_newline || CurChar == tok_return) {
-        LexLoc.Line++;
-        LexLoc.Col = 0;
+        CurLoc.Line++;
+        CurLoc.Col = 0;
     } else {
-        LexLoc.Col++;
+        CurLoc.Col++;
     }
 
     return CurChar;
 }
 
-int Lexer::gettok() {
-    while (isspace(LastChar)) {
+Token Lexer::getNextToken(unsigned ForwardStep) {
+    if (ForwardStep == 0) {
+        while (isspace(LastChar)) {
+            LastChar = GetChar();
+        }
+
+        if (isalpha(LastChar)) {
+            IdentifierStr = LastChar;
+            while (isalnum(LastChar = GetChar())) {
+                IdentifierStr += LastChar;
+            }
+
+            if (IdentifierStr == "extern")
+                return CurTok = tok_extern;
+            if (IdentifierStr == "exit")
+                exit(0);
+            if (IdentifierStr == "if")
+                return CurTok = tok_if;
+            if (IdentifierStr == "then")
+                return CurTok = tok_then;
+            if (IdentifierStr == "else")
+                return CurTok = tok_else;
+            if (IdentifierStr == "for")
+                return CurTok = tok_for;
+            if (IdentifierStr == "in")
+                return CurTok = tok_in;
+            if (IdentifierStr == "unary")
+                return CurTok = tok_unary;
+            if (IdentifierStr == "binary")
+                return CurTok = tok_binary;
+            if (IdentifierStr == "var")
+                return CurTok = tok_var;
+            if (IdentifierStr == "bool")
+                return CurTok = tok_type_bool;
+            if (IdentifierStr == "int")
+                return CurTok = tok_type_int;
+            if (IdentifierStr == "float")
+                return CurTok = tok_type_float;
+            if (IdentifierStr == "string")
+                return CurTok = tok_type_string;
+
+            return CurTok = tok_identifier;
+        }
+
+        if (isdigit(LastChar) || LastChar == tok_dot) {
+            string NumStr;
+            do {
+                NumStr += LastChar;
+                LastChar = GetChar();
+            } while (isdigit(LastChar) || LastChar == tok_dot);
+
+            if (NumStr.find(tok_dot) == string::npos) {
+                IntegerVal = stol(NumStr);
+                return CurTok = tok_integer_literal;
+            } else {
+                FloatVal = stod(NumStr);
+                return CurTok = tok_float_literal;
+            }
+        }
+
+        if (LastChar == tok_hash) {
+            do {
+                LastChar = GetChar();
+            } while (LastChar != EOF && LastChar != '\n' && LastChar != '\r');
+
+            if (LastChar != EOF) {
+                return getNextToken();
+            }
+        }
+
+        if (LastChar == EOF) {
+            return CurTok = tok_eof;
+        }
+
+        Token ThisChar = LastChar;
         LastChar = GetChar();
+        return CurTok = ThisChar;
     }
 
-    CurLoc = LexLoc;
+    Token SavedLastChar = LastChar;
+    SourceLocation SavedCurLoc = CurLoc;
+    Token SavedCurTok = CurTok;
+    string::size_type SavedIndex = Index;
 
-    if (isalpha(LastChar)) {
-        IdentifierStr = LastChar;
-        while (isalnum(LastChar = GetChar())) {
-            IdentifierStr += LastChar;
-        }
-
-        if (IdentifierStr == "def") {
-            return tok_def;
-        }
-        if (IdentifierStr == "extern")
-            return tok_extern;
-        if (IdentifierStr == "exit")
-            exit(0);
-        if (IdentifierStr == "if")
-            return tok_if;
-        if (IdentifierStr == "then")
-            return tok_then;
-        if (IdentifierStr == "else")
-            return tok_else;
-        if (IdentifierStr == "for")
-            return tok_for;
-        if (IdentifierStr == "in")
-            return tok_in;
-        if (IdentifierStr == "unary")
-            return tok_unary;
-        if (IdentifierStr == "binary")
-            return tok_binary;
-        if (IdentifierStr == "var")
-            return tok_var;
-        if (IdentifierStr == "bool")
-            return tok_type_bool;
-        if (IdentifierStr == "int")
-            return tok_type_int;
-        if (IdentifierStr == "float")
-            return tok_type_float;
-        if (IdentifierStr == "string")
-            return tok_type_string;
-
-        return tok_identifier;
+    Token Tok = (Token)0;
+    for (unsigned i = 0; i < ForwardStep; i++) {
+        Tok = getNextToken();
     }
+    LastChar = SavedLastChar;
+    CurLoc = SavedCurLoc;
+    CurTok = SavedCurTok;
+    Index = SavedIndex;
 
-    if (isdigit(LastChar) || LastChar == tok_dot) {
-        string NumStr;
-        do {
-            NumStr += LastChar;
-            LastChar = GetChar();
-        } while (isdigit(LastChar) || LastChar == tok_dot);
-
-        NumVal = strtod(NumStr.c_str(), 0);
-        return tok_number;
-    }
-
-    if (LastChar == tok_hash) {
-        do {
-            LastChar = GetChar();
-        } while (LastChar != EOF && LastChar != '\n' && LastChar != '\r');
-
-        if (LastChar != EOF) {
-            return gettok();
-        }
-    }
-
-    if (LastChar == EOF) {
-        return tok_eof;
-    }
-
-    char ThisChar = LastChar;
-    LastChar = GetChar();
-    return ThisChar;
-}
-
-Token Lexer::getNextToken() {
-    return CurTok = (Token)gettok();
+    return Tok;
 }

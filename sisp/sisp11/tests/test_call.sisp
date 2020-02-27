@@ -1,8 +1,13 @@
 
-def sum(x, y) {
+float sum(float x, float y) {
     x + y;
 }
 
-sum(12, 21);
+int sub(int x, int y) {
+    x - y;
+}
+
+sub(56, 45);
+sum(12.0, 21.0);
 
 # => 33

@@ -53,6 +53,25 @@ static inline std::string FormatString(const char *fmt,...)
     return strRet;
 }
 
+static Type * getType(Token type, LLVMContext &contxt) {
+    llvm::Type *ArgType;
+    switch (type) {
+        case tok_type_bool:
+            ArgType = llvm::Type::getInt1Ty(contxt);
+            break;
+        case tok_type_int:
+            ArgType = llvm::Type::getInt8Ty(contxt);
+            break;
+        case tok_type_float:
+            ArgType = llvm::Type::getDoubleTy(contxt);
+            break;
+        default:
+            assert(false && "not implemented type");
+            break;
+    }
+    return ArgType;
+}
+
 class ExprAST;
 
 static unsigned gId = 0;
@@ -119,19 +138,15 @@ public:
 static unique_ptr<ExprAST> ParseExpr(shared_ptr<Scope> scope);
 
 class VarExprAST : public ExprAST {
-//    vector<pair<string, unique_ptr<ExprAST>>> VarNames;
     string Name;
     Token Type;
     unique_ptr<ExprAST> Init;
 
 public:
-//    VarExprAST(shared_ptr<Scope> scope, vector<pair<string, unique_ptr<ExprAST>>> varNames)
-//        : ExprAST(scope), VarNames(move(varNames)) {}
     VarExprAST(shared_ptr<Scope> scope, Token type, string name, unique_ptr<ExprAST> init)
         : ExprAST(scope), Type(type), Name(name), Init(move(init)) {}
 
     Value *codegen() override;
-//    vector<pair<string, unique_ptr<ExprAST>>> getVars() { return move(VarNames); }
     const string &getName() const { return Name; }
     const Token getType() const { return Type; }
     ExprAST * getInit() const { return Init.get(); }
@@ -159,17 +174,31 @@ public:
     }
 };
 
-class NumberExprAST : public ExprAST {
+class IntegerLiteralAST : public ExprAST {
+    long Val;
+
+public:
+    IntegerLiteralAST(shared_ptr<Scope> scope, long val): ExprAST(scope), Val(val) {}
+    Value *codegen() override;
+    void dumpAST() override {
+        cout << "<<IntegerLiteralAST>>" << "\n";
+    }
+    string dumpJSON() override {
+        return FormatString("{`type`: `IntegerLiteral`, `Val`: `%s`}", to_string(Val).c_str());
+    }
+};
+
+class FloatLiteralAST : public ExprAST {
     double Val;
 
 public:
-    NumberExprAST(shared_ptr<Scope> scope, double val): ExprAST(scope), Val(val) {}
+    FloatLiteralAST(shared_ptr<Scope> scope, double val): ExprAST(scope), Val(val) {}
     Value *codegen() override;
     void dumpAST() override {
-        cout << "<<NumberExprAST>>" << "\n";
+        cout << "<<FloatLiteralAST>>" << "\n";
     }
     string dumpJSON() override {
-        return FormatString("{`type`: `Number`, `Val`: `%s`}", to_string(Val).c_str());
+        return FormatString("{`type`: `FloatLiteral`, `Val`: `%s`}", to_string(Val).c_str());
     }
 };
 
@@ -231,6 +260,7 @@ public:
 
 class PrototypeAST {
     SourceLocation Loc;
+    Token RetType;
     string Name;
     vector<unique_ptr<VarExprAST>> Args;
     bool IsOperator;
@@ -238,12 +268,14 @@ class PrototypeAST {
 
 public:
     PrototypeAST(SourceLocation loc,
+                 Token type,
                  string &name,
                  vector<unique_ptr<VarExprAST>> args,
                  bool isOperator = false,
                  unsigned precedence = 0)
         :
         Loc(loc),
+        RetType(type),
         Name(name),
         Args(move(args)),
         IsOperator(isOperator),
@@ -300,24 +332,29 @@ public:
 };
 
 class ForExprAST : public ExprAST {
-    string VarName;
+    unique_ptr<VarExprAST> Var;
     unique_ptr<ExprAST> Start, End, Step, Body;
 
 public:
     ForExprAST(shared_ptr<Scope> scope,
-               string &varName,
-               unique_ptr<ExprAST> start,
+               unique_ptr<VarExprAST> var,
+//               unique_ptr<ExprAST> start,
                unique_ptr<ExprAST> end,
                unique_ptr<ExprAST> step,
                unique_ptr<ExprAST> body):
-        ExprAST(scope), VarName(varName), Start(move(start)), End(move(end)), Step(move(step)), Body(move(body)) {}
+        ExprAST(scope),
+        Var(move(var)),
+//        Start(move(start)),
+        End(move(end)),
+        Step(move(step)),
+        Body(move(body)) {}
 
     Value * codegen() override;
     void dumpAST() override {
         cout << "<<ForExprAST>>" << "\n";
     }
     string dumpJSON() override {
-        return FormatString("{`type`: `For`, `VarName`: %s, `Start`: %s, `End`: %s, `Step`: %s, `Body`: %s}", VarName.c_str(), Start->dumpJSON().c_str(), End->dumpJSON().c_str(), Step->dumpJSON().c_str(), Body->dumpJSON().c_str());
+        return FormatString("{`type`: `For`, `Var`: %s, `End`: %s, `Step`: %s, `Body`: %s}", Var->dumpJSON().c_str(), End->dumpJSON().c_str(), Step->dumpJSON().c_str(), Body->dumpJSON().c_str());
     }
 };
 
@@ -379,7 +416,8 @@ class Parser {
     map<char, int> BinOpPrecedence;
     std::unique_ptr<Lexer> TheLexer;
 
-    unique_ptr<ExprAST> ParseNumberExpr(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParseIntegerLiteral(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParseFloatLiteral(shared_ptr<Scope> scope);
     unique_ptr<ExprAST> ParseParenExpr(shared_ptr<Scope> scope);
     std::unique_ptr<ExprAST> ParseIdentifierExpr(shared_ptr<Scope> scope);
     unique_ptr<ExprAST> ParsePrimary(shared_ptr<Scope> scope);
@@ -403,6 +441,7 @@ public:
 
         BinOpPrecedence[tok_equal] = 2;
         BinOpPrecedence[tok_less] = 10;
+        BinOpPrecedence[tok_greater] = 10;
         BinOpPrecedence[tok_add] = 20;
         BinOpPrecedence[tok_sub] = 20;
         BinOpPrecedence[tok_mul] = 40;
@@ -427,7 +466,8 @@ public:
     void HandleExtern();
     void HandleTopLevelExpression(shared_ptr<Scope> scope);
 
-    static AllocaInst *CreateEntryBlockAlloca(Function *F, const string &VarName);
+    static AllocaInst *CreateEntryBlockAlloca(Function *F, Type *T, const string &VarName);
+    static AllocaInst *CreateEntryBlockAlloca(Function *F, VarExprAST *Var);
     void SetBinOpPrecedence(char Op, int Prec) {
         if (Prec >= 0) {
             BinOpPrecedence[Op] = Prec;

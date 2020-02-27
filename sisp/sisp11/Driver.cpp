@@ -47,7 +47,12 @@ static int MainLoop() {
             case tok_right_bracket:
                 TheParser->getNextToken();
                 break;
-            case tok_def:
+//            case tok_def:
+            case tok_type_bool:
+            case tok_type_int:
+            case tok_type_float:
+            case tok_type_string:
+            case tok_type_object:
                 TheParser->HandleDefinition(scope);
                 break;
             case tok_extern:

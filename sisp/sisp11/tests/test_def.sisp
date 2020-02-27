@@ -1,5 +1,5 @@
 
-def func() {
+int func() {
     42;
 }
 
