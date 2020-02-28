@@ -195,13 +195,7 @@ Value *IfExprAST::codegen() {
 }
 
 Value *ForExprAST::codegen() {
-//    auto StartValue = Start->codegen();
-//    if (!StartValue)
-//        return nullptr;
-
     auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
-
-//    auto Alloca = Parser::CreateEntryBlockAlloca(F, Var.get());
 
     SispDbgInfo.emitLocation(this);
 
@@ -211,14 +205,28 @@ Value *ForExprAST::codegen() {
 
     auto Alloca = getScope()->getVal(Var->getName());
 
-//    TheParser->getBuilder()->CreateStore(StartVal, Alloca);
+    auto TestBlock = BasicBlock::Create(TheParser->getContext(), "test", F);
+    TheParser->getBuilder()->CreateBr(TestBlock);
+
+    // %test:
+    TheParser->getBuilder()->SetInsertPoint(TestBlock);
+
+    auto LoopCond = End->codegen();
+    if (!LoopCond)
+        return nullptr;
+    // %loopcond = %loopcond != 0
+//    LoopCond = TheParser->getBuilder()->CreateICmpNE(LoopCond,
+//                                                     ConstantInt::get(TheParser->getContext(), APInt(1, 0)),
+//                                                     "loopcond");
 
     auto LoopBlock = BasicBlock::Create(TheParser->getContext(), "loop", F);
-    TheParser->getBuilder()->CreateBr(LoopBlock);
+    auto AfterBlock = BasicBlock::Create(TheParser->getContext(), "afterloop", F);
+
+    // if %loopcond is true; then go to %loop; else goto %afterloop
+    TheParser->getBuilder()->CreateCondBr(LoopCond, LoopBlock, AfterBlock);
+
+    // %loop:
     TheParser->getBuilder()->SetInsertPoint(LoopBlock);
-
-//    getScope()->setVal(Var->getName(), Alloca);
-
     if (!Body->codegen())
         return nullptr;
 
@@ -228,21 +236,16 @@ Value *ForExprAST::codegen() {
         if (!StepVal)
             return nullptr;
     } else {
-        StepVal = ConstantInt::get(TheParser->getContext(), APInt(64, 0));
+        StepVal = ConstantInt::get(TheParser->getContext(), APInt(64, 1));
     }
-
-    auto EndCond = End->codegen();
-    if (!EndCond)
-        return nullptr;
-
+    // i = i + %StepVal
     auto CurVar = TheParser->getBuilder()->CreateLoad(Alloca, Var->getName());
     auto NextVar = TheParser->getBuilder()->CreateAdd(CurVar, StepVal, "nextvar");
     TheParser->getBuilder()->CreateStore(NextVar, Alloca);
+    // goto %test
+    TheParser->getBuilder()->CreateBr(TestBlock);
 
-    EndCond = TheParser->getBuilder()->CreateICmpNE(EndCond, ConstantInt::get(TheParser->getContext(), APInt(1, 0)), "loopcond");
-
-    auto AfterBlock = BasicBlock::Create(TheParser->getContext(), "afterloop", F);
-    TheParser->getBuilder()->CreateCondBr(EndCond, LoopBlock, AfterBlock);
+    // %afterloop:
     TheParser->getBuilder()->SetInsertPoint(AfterBlock);
 
     return Constant::getNullValue(Type::getInt8Ty(TheParser->getContext()));
