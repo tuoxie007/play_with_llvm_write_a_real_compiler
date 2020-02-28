@@ -1,0 +1,6 @@
+
+int triple(int x) {
+    return x * 3;
+}
+
+triple(14);

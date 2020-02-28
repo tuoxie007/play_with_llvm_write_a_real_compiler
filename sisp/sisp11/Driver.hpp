@@ -12,6 +12,6 @@
 #include <map>
 #include <string>
 
-extern int compile(std::string &src, std::map<std::string, std::string> *opts = nullptr);
+extern int compile(std::string &src, std::map<std::string, std::string> &opts);
 
 #endif /* Dirver_h */

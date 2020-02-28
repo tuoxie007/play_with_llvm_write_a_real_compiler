@@ -2819,21 +2819,25 @@
 		BFC34C2523FD22D50086F9EE /* Codegen.cpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Codegen.cpp; sourceTree = "<group>"; };
 		BFC34C2623FD22D50086F9EE /* Codegen.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Codegen.hpp; sourceTree = "<group>"; };
 		BFC34C2823FD23120086F9EE /* Driver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Driver.cpp; sourceTree = "<group>"; };
-		BFC34C2D23FD23EC0086F9EE /* test_def.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_def.sisp; sourceTree = "<group>"; };
-		BFC34C2E23FD254D0086F9EE /* test_extern.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_extern.sisp; sourceTree = "<group>"; };
-		BFC34C2F23FD25B70086F9EE /* test_constant.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_constant.sisp; sourceTree = "<group>"; };
-		BFC34C3023FD25F50086F9EE /* test_math.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_math.sisp; sourceTree = "<group>"; };
-		BFC34C3123FD262F0086F9EE /* test_call.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_call.sisp; sourceTree = "<group>"; };
-		BFC34C3223FD26930086F9EE /* test_ifcond.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_ifcond.sisp; sourceTree = "<group>"; };
-		BFC34C3323FD276C0086F9EE /* test_forloop.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_forloop.sisp; sourceTree = "<group>"; };
-		BFC34C3423FD27B60086F9EE /* test_var.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_var.sisp; sourceTree = "<group>"; };
-		BFC34C3523FD27FB0086F9EE /* test_var_init.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_var_init.sisp; sourceTree = "<group>"; };
-		BFC34C3623FD28400086F9EE /* test_var_assign.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_var_assign.sisp; sourceTree = "<group>"; };
-		BFC34C3723FD295C0086F9EE /* test_formula.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_formula.sisp; sourceTree = "<group>"; };
-		BFC34C3823FD3A7D0086F9EE /* test_compound.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_compound.sisp; sourceTree = "<group>"; };
+		BFC34C2D23FD23EC0086F9EE /* def.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = def.sisp; sourceTree = "<group>"; };
+		BFC34C2E23FD254D0086F9EE /* extern.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = extern.sisp; sourceTree = "<group>"; };
+		BFC34C2F23FD25B70086F9EE /* constant.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = constant.sisp; sourceTree = "<group>"; };
+		BFC34C3023FD25F50086F9EE /* math.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = math.sisp; sourceTree = "<group>"; };
+		BFC34C3123FD262F0086F9EE /* call.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = call.sisp; sourceTree = "<group>"; };
+		BFC34C3223FD26930086F9EE /* ifcond.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = ifcond.sisp; sourceTree = "<group>"; };
+		BFC34C3323FD276C0086F9EE /* forloop.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = forloop.sisp; sourceTree = "<group>"; };
+		BFC34C3423FD27B60086F9EE /* var.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = var.sisp; sourceTree = "<group>"; };
+		BFC34C3523FD27FB0086F9EE /* var_init.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = var_init.sisp; sourceTree = "<group>"; };
+		BFC34C3623FD28400086F9EE /* var_assign.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = var_assign.sisp; sourceTree = "<group>"; };
+		BFC34C3723FD295C0086F9EE /* formula.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = formula.sisp; sourceTree = "<group>"; };
+		BFC34C3823FD3A7D0086F9EE /* compound.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = compound.sisp; sourceTree = "<group>"; };
 		BFC34C4423FE8C0D0086F9EE /* cli.cpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cli.cpp; sourceTree = "<group>"; };
 		BFC34C4623FE90EB0086F9EE /* Driver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Driver.hpp; sourceTree = "<group>"; };
 		BFC34C4923FFB2A70086F9EE /* GlobalVars.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = GlobalVars.hpp; sourceTree = "<group>"; };
+		BFC34C5F2407E9BE0086F9EE /* link.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = link.sisp; sourceTree = "<group>"; };
+		BFC34C602407E9FE0086F9EE /* exec.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = exec.sisp; sourceTree = "<group>"; };
+		BFC34C622407EB670086F9EE /* call_triple.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = call_triple.c; sourceTree = "<group>"; };
+		BFC34C642407EC1A0086F9EE /* test_link.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = test_link.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -6973,18 +6977,22 @@
 		BFC34C2C23FD234E0086F9EE /* tests */ = {
 			isa = PBXGroup;
 			children = (
-				BFC34C2D23FD23EC0086F9EE /* test_def.sisp */,
-				BFC34C2E23FD254D0086F9EE /* test_extern.sisp */,
-				BFC34C2F23FD25B70086F9EE /* test_constant.sisp */,
-				BFC34C3023FD25F50086F9EE /* test_math.sisp */,
-				BFC34C3123FD262F0086F9EE /* test_call.sisp */,
-				BFC34C3423FD27B60086F9EE /* test_var.sisp */,
-				BFC34C3523FD27FB0086F9EE /* test_var_init.sisp */,
-				BFC34C3623FD28400086F9EE /* test_var_assign.sisp */,
-				BFC34C3223FD26930086F9EE /* test_ifcond.sisp */,
-				BFC34C3323FD276C0086F9EE /* test_forloop.sisp */,
-				BFC34C3723FD295C0086F9EE /* test_formula.sisp */,
-				BFC34C3823FD3A7D0086F9EE /* test_compound.sisp */,
+				BFC34C2D23FD23EC0086F9EE /* def.sisp */,
+				BFC34C2E23FD254D0086F9EE /* extern.sisp */,
+				BFC34C2F23FD25B70086F9EE /* constant.sisp */,
+				BFC34C3023FD25F50086F9EE /* math.sisp */,
+				BFC34C3123FD262F0086F9EE /* call.sisp */,
+				BFC34C3423FD27B60086F9EE /* var.sisp */,
+				BFC34C3523FD27FB0086F9EE /* var_init.sisp */,
+				BFC34C3623FD28400086F9EE /* var_assign.sisp */,
+				BFC34C3223FD26930086F9EE /* ifcond.sisp */,
+				BFC34C3323FD276C0086F9EE /* forloop.sisp */,
+				BFC34C3723FD295C0086F9EE /* formula.sisp */,
+				BFC34C3823FD3A7D0086F9EE /* compound.sisp */,
+				BFC34C5F2407E9BE0086F9EE /* link.sisp */,
+				BFC34C602407E9FE0086F9EE /* exec.sisp */,
+				BFC34C622407EB670086F9EE /* call_triple.c */,
+				BFC34C642407EC1A0086F9EE /* test_link.sh */,
 			);
 			path = tests;
 			sourceTree = "<group>";

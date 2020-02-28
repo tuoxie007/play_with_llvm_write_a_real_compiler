@@ -65,7 +65,7 @@ static int MainLoop() {
     }
 }
 
-int compile(std::string &src, std::map<string, string> *opts) {
+int compile(std::string &src, std::map<string, string> &opts) {
 
     InitializeNativeTarget();
     InitializeNativeTargetAsmPrinter();
@@ -73,7 +73,7 @@ int compile(std::string &src, std::map<string, string> *opts) {
 
     cout << src << endl;
 
-    std::string jit = (*opts)["jit"];
+    std::string jit = opts["jit"];
     TheParser = std::make_unique<Parser>(jit == "1", src);
 
     MainLoop();
@@ -111,7 +111,7 @@ int compile(std::string &src, std::map<string, string> *opts) {
     auto TheTargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
     TheParser->getModule().setDataLayout(TheTargetMachine->createDataLayout());
 
-    auto Filename = "output.o";
+    auto Filename = opts.find("out") != opts.end() ? opts["out"] : "output.o";
     std::error_code EC;
     raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
 

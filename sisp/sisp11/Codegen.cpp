@@ -52,7 +52,7 @@ const std::string& FunctionAST::getName() const {
 
 Value *IntegerLiteralAST::codegen() {
     SispDbgInfo.emitLocation(this);
-    return ConstantInt::get(TheParser->getContext(), APInt(8, Val));
+    return ConstantInt::get(TheParser->getContext(), APInt(64, Val));
 }
 
 Value *FloatLiteralAST::codegen() {
@@ -104,27 +104,37 @@ Value *BinaryExprAST::codegen() {
             else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
                 return TheParser->getBuilder()->CreateAdd(L, R, "addtmp");
         case tok_sub:
-            if (L->getType()->isFloatTy() || L->getType()->isFloatTy())
+            if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy())
                 return TheParser->getBuilder()->CreateFSub(L, R, "subtmp");
             else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
                 return TheParser->getBuilder()->CreateSub(L, R, "subtmp");
         case tok_mul:
-            if (L->getType()->isFloatTy() || L->getType()->isFloatTy())
+            if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy())
                 return TheParser->getBuilder()->CreateFMul(L, R, "multmp");
             else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
                 return TheParser->getBuilder()->CreateMul(L, R, "multmp");
         case tok_less:
-            if (L->getType()->isFloatTy() || L->getType()->isFloatTy())
-                return TheParser->getBuilder()->CreateFCmpULT(L, R, "lttmp");
-            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
-                return TheParser->getBuilder()->CreateICmpULT(L, R, "lttmp");
+            if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy()) {
+                L = TheParser->getBuilder()->CreateFCmpULT(L, R, "lttmp");
+                return TheParser->getBuilder()->CreateUIToFP(L, Type::getDoubleTy(TheParser->getContext()),
+                "booltmp");
+            }
+            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy()) {
+                return TheParser->getBuilder()->CreateICmpSLT(L, R, "lttmp");
+//                return TheParser->getBuilder()->CreateUIToFP(L, Type::getInt64Ty(TheParser->getContext()), "booltmp");
+            }
             else
                 assert(false && "not implemented");
         case tok_greater:
-            if (L->getType()->isFloatTy() || L->getType()->isFloatTy())
-                return TheParser->getBuilder()->CreateFCmpUGT(L, R, "gttmp");
-            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
-                return TheParser->getBuilder()->CreateICmpUGT(L, R, "gttmp");
+            if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy()) {
+                R = TheParser->getBuilder()->CreateFCmpUGT(L, R, "gttmp");
+                return TheParser->getBuilder()->CreateUIToFP(R, Type::getDoubleTy(TheParser->getContext()),
+                "booltmp");
+            }
+            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy()) {
+                return TheParser->getBuilder()->CreateICmpSGT(L, R, "gttmp");
+//                return TheParser->getBuilder()->CreateUIToFP(R, Type::getInt64Ty(TheParser->getContext()), "booltmp");
+            }
             else
                 assert(false && "not implemented");
         default:
@@ -218,7 +228,7 @@ Value *ForExprAST::codegen() {
         if (!StepVal)
             return nullptr;
     } else {
-        StepVal = ConstantInt::get(TheParser->getContext(), APInt(1, 0));
+        StepVal = ConstantInt::get(TheParser->getContext(), APInt(64, 0));
     }
 
     auto EndCond = End->codegen();
@@ -252,7 +262,7 @@ Value *VarExprAST::codegen() {
     } else if (Type == tok_type_bool) {
         InitVal = ConstantInt::get(TheParser->getContext(), APInt(1, 0));
     } else if (Type == tok_type_int) {
-        InitVal = ConstantInt::get(TheParser->getContext(), APInt(8, 0));
+        InitVal = ConstantInt::get(TheParser->getContext(), APInt(64, 0));
     } else {
         assert(false && "not implemented type");
     }

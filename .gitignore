@@ -2,3 +2,5 @@
 
 UserInterfaceState.xcuserstate
 xuke.xcuserdatad
+*.o
+*.ll

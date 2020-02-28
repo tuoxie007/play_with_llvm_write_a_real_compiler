@@ -60,7 +60,7 @@ static Type * getType(Token type, LLVMContext &contxt) {
             ArgType = llvm::Type::getInt1Ty(contxt);
             break;
         case tok_type_int:
-            ArgType = llvm::Type::getInt8Ty(contxt);
+            ArgType = llvm::Type::getInt64Ty(contxt);
             break;
         case tok_type_float:
             ArgType = llvm::Type::getDoubleTy(contxt);
