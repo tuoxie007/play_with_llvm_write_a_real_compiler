@@ -364,7 +364,6 @@ public:
     void emitLocation(ExprAST *AST);
 };
 
-//extern LLVMContext TheContext;
 extern std::unique_ptr<DIBuilder> DBuilder;
 extern DebugInfo SispDbgInfo;
 

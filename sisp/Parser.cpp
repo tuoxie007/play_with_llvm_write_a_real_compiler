@@ -208,18 +208,12 @@ unique_ptr<ExprAST> Parser::ParseBinOpRHS(shared_ptr<Scope> scope,
             }
         }
 
-        if (BinOp == tok_equal) {
-            cout << "assign" << endl;
-        }
-
         LHS = make_unique<BinaryExprAST>(scope, BinLoc, BinOp, move(LHS), move(RHS));
     }
 }
 
 unique_ptr<ExprAST> Parser::ParseIfExpr(shared_ptr<Scope> scope) {
     SourceLocation IfLoc = TheLexer->CurLoc;
-
-    cout << "## if" << endl;
 
     getNextToken();
 
@@ -230,10 +224,7 @@ unique_ptr<ExprAST> Parser::ParseIfExpr(shared_ptr<Scope> scope) {
         return nullptr;
 
     if (TheLexer->CurTok == tok_then)
-//        return LogError("expected then");
         getNextToken();
-
-    cout << "## then" << endl;
 
     auto Then = ParseExpr(IfScope);
     if (!Then)
@@ -243,12 +234,9 @@ unique_ptr<ExprAST> Parser::ParseIfExpr(shared_ptr<Scope> scope) {
         return LogError("expected else");
     getNextToken();
 
-    cout << "## else" << endl;
-
     auto Else = ParseExpr(IfScope);
     if (!Else)
         return nullptr;
-
 
     if (TheLexer->CurTok == tok_colon) {
         getNextToken();
