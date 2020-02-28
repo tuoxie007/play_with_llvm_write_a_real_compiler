@@ -139,7 +139,7 @@ unique_ptr<ExprAST> Parser::ParsePrimary(shared_ptr<Scope> scope) {
 }
 
 int Parser::GetTokenPrecedence() {
-    cout << "GetTokenPrecedence" << tok_tos(TheLexer->CurTok) << endl;
+//    cout << "GetTokenPrecedence" << tok_tos(TheLexer->CurTok) << endl;
     if (!isascii(TheLexer->CurTok)) {
         return -1;
     }
@@ -154,7 +154,6 @@ int Parser::GetTokenPrecedence() {
 
 unique_ptr<ExprAST> Parser::ParseExpr(shared_ptr<Scope> scope) {
     if (TheLexer->CurTok == tok_left_bracket) {
-        cout << "## {" << endl;
 
         getNextToken();
 
@@ -162,7 +161,6 @@ unique_ptr<ExprAST> Parser::ParseExpr(shared_ptr<Scope> scope) {
         auto localScope = make_shared<Scope>(scope);
         while (true) {
             if (TheLexer->CurTok == tok_right_bracket) {
-                cout << "## }" << endl;
                 getNextToken();
                 break;
             }
@@ -170,11 +168,9 @@ unique_ptr<ExprAST> Parser::ParseExpr(shared_ptr<Scope> scope) {
             if (!Expr)
                 return nullptr;
 
-            Expr->dumpAST();
             Exprs.push_back(move(Expr));
         }
 
-        cout << "<<CompoundExprAST>>" << endl;
         return make_unique<CompoundExprAST>(localScope, move(Exprs));
     }
 
@@ -263,8 +259,6 @@ unique_ptr<ExprAST> Parser::ParseIfExpr(shared_ptr<Scope> scope) {
 unique_ptr<ExprAST> Parser::ParseForExpr(shared_ptr<Scope> scope) {
     getNextToken();
 
-    cout << "## for" << endl;
-
     if (TheLexer->CurTok != tok_left_paren)
         return LogError("expected '(' after for");
     getNextToken();
@@ -275,18 +269,13 @@ unique_ptr<ExprAST> Parser::ParseForExpr(shared_ptr<Scope> scope) {
     shared_ptr<Scope> ForScope = make_shared<Scope>(scope);
 
     auto Var = unique_ptr<VarExprAST>(static_cast<VarExprAST *>(ParseVarExpr(scope).release()));
-//    getNextToken();
 
     if (TheLexer->CurTok == tok_colon)
         getNextToken();
 
-    cout << "## end" << endl;
-
     auto End = ParseExpr(ForScope);
     if (!End)
         return nullptr;
-
-    cout << "## step" << endl;
 
     unique_ptr<ExprAST> Step;
     if (TheLexer->CurTok == tok_colon) {
@@ -302,10 +291,6 @@ unique_ptr<ExprAST> Parser::ParseForExpr(shared_ptr<Scope> scope) {
     if (TheLexer->CurTok != tok_right_paren)
         return LogError("expected ')' in for");
     getNextToken();
-
-//    if (CurTok != tok_in)
-//        return LogError("expected 'in' after for");
-//    getNextToken();
 
     auto Body = ParseExpr(ForScope);
     if (!Body)

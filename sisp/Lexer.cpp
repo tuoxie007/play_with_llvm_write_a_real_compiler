@@ -15,7 +15,7 @@ Token Lexer::GetChar() {
     if (Index >= TheCode.length())
         return (Token)EOF;
     Token CurChar = (Token)TheCode.at(Index++);
-    cout << "getchar [" << string(1, CurChar) << "]" << endl;
+//    cout << "getchar [" << string(1, CurChar) << "]" << endl;
 
     if (CurChar == tok_newline || CurChar == tok_return) {
         CurLoc.Line++;

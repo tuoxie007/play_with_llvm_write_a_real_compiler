@@ -55,9 +55,6 @@ public:
     const PrototypeAST& getProto() const;
     const std::string& getName() const;
     llvm::Function *codegen();
-    void dumpAST() {
-        std::cout << "<FunctionAST:" << getName() << ">" << std::endl;
-    }
     std::string dumpJSON();
 };
 

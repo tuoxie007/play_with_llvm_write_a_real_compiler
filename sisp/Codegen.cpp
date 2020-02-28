@@ -65,7 +65,7 @@ Value *VariableExprAST::codegen() {
     if (!V)
         LogError("Unkown variable name");
 
-    cout << "VariableExprAST::codegen()" << V << endl;
+//    cout << "VariableExprAST::codegen()" << V << endl;
     SispDbgInfo.emitLocation(this);
     return TheParser->getBuilder()->CreateLoad(V, Name);
 }
@@ -292,7 +292,7 @@ Value *CompoundExprAST::codegen() {
     int i = 0;
     Value *RetVal = nullptr;
     for (auto Expr = Exprs.begin(); Expr != Exprs.end(); Expr ++) {
-        cout << "subExpr " << to_string(i++) << endl;
+//        cout << "subExpr " << to_string(i++) << endl;
         RetVal = (*Expr)->codegen();
         if (!RetVal)
             return nullptr;

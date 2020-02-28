@@ -30,7 +30,7 @@
 
 int main(int argc, const char * argv[]) {
     
-    std::string testsDir = std::string(PROJECT_DIR) + "/sisp/sisp11/tests";
+    std::string testsDir = std::string(PROJECT_DIR) + "/sisp/tests";
     for (const auto & entry : std::__fs::filesystem::directory_iterator(testsDir)) {
 
         if (entry.path().filename() != std::string(TEST) + ".sisp") continue;

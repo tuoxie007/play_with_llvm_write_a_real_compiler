@@ -2811,7 +2811,6 @@
 		BFC34C1123F911430086F9EE /* Analysis.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Analysis.h; sourceTree = "<group>"; };
 		BFC34C1223F911430086F9EE /* lto.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lto.h; sourceTree = "<group>"; };
 		BFC34C1323F911430086F9EE /* Support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Support.h; sourceTree = "<group>"; };
-		BFC34C1D23FAC2EC0086F9EE /* test10.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = test10.sisp; sourceTree = "<group>"; };
 		BFC34C1F23FD22930086F9EE /* Lexer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Lexer.cpp; sourceTree = "<group>"; };
 		BFC34C2023FD22930086F9EE /* Lexer.hpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.h; path = Lexer.hpp; sourceTree = "<group>"; };
 		BFC34C2223FD22B90086F9EE /* Parser.cpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Parser.cpp; sourceTree = "<group>"; };
@@ -2871,9 +2870,17 @@
 		BFC3407E23F4303A0086F9EE /* sisp */ = {
 			isa = PBXGroup;
 			children = (
+				BFC34C2C23FD234E0086F9EE /* tests */,
 				BFC3408C23F57EA00086F9EE /* SispJIT.h */,
-				BFC34C1D23FAC2EC0086F9EE /* test10.sisp */,
-				BFC34C1E23FD223A0086F9EE /* sisp11 */,
+				BFC34C2023FD22930086F9EE /* Lexer.hpp */,
+				BFC34C1F23FD22930086F9EE /* Lexer.cpp */,
+				BFC34C2323FD22B90086F9EE /* Parser.hpp */,
+				BFC34C2223FD22B90086F9EE /* Parser.cpp */,
+				BFC34C2623FD22D50086F9EE /* Codegen.hpp */,
+				BFC34C2523FD22D50086F9EE /* Codegen.cpp */,
+				BFC34C4623FE90EB0086F9EE /* Driver.hpp */,
+				BFC34C2823FD23120086F9EE /* Driver.cpp */,
+				BFC34C4923FFB2A70086F9EE /* GlobalVars.hpp */,
 				BFC3408D23F63E050086F9EE /* build.sh */,
 				BFC34C4423FE8C0D0086F9EE /* cli.cpp */,
 			);
@@ -6955,23 +6962,6 @@
 				BFC34C0623F911430086F9EE /* AggressiveInstCombine.h */,
 			);
 			path = Transforms;
-			sourceTree = "<group>";
-		};
-		BFC34C1E23FD223A0086F9EE /* sisp11 */ = {
-			isa = PBXGroup;
-			children = (
-				BFC34C2C23FD234E0086F9EE /* tests */,
-				BFC34C2023FD22930086F9EE /* Lexer.hpp */,
-				BFC34C1F23FD22930086F9EE /* Lexer.cpp */,
-				BFC34C2323FD22B90086F9EE /* Parser.hpp */,
-				BFC34C2223FD22B90086F9EE /* Parser.cpp */,
-				BFC34C2623FD22D50086F9EE /* Codegen.hpp */,
-				BFC34C2523FD22D50086F9EE /* Codegen.cpp */,
-				BFC34C4623FE90EB0086F9EE /* Driver.hpp */,
-				BFC34C2823FD23120086F9EE /* Driver.cpp */,
-				BFC34C4923FFB2A70086F9EE /* GlobalVars.hpp */,
-			);
-			path = sisp11;
 			sourceTree = "<group>";
 		};
 		BFC34C2C23FD234E0086F9EE /* tests */ = {
