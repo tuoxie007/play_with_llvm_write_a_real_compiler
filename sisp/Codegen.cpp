@@ -206,6 +206,9 @@ Value *ForExprAST::codegen() {
     auto Alloca = getScope()->getVal(Var->getName());
 
     auto TestBlock = BasicBlock::Create(TheParser->getContext(), "test", F);
+    auto LoopBlock = BasicBlock::Create(TheParser->getContext(), "loop", F);
+    auto AfterBlock = BasicBlock::Create(TheParser->getContext(), "afterloop", F);
+
     TheParser->getBuilder()->CreateBr(TestBlock);
 
     // %test:
@@ -214,13 +217,6 @@ Value *ForExprAST::codegen() {
     auto LoopCond = End->codegen();
     if (!LoopCond)
         return nullptr;
-    // %loopcond = %loopcond != 0
-//    LoopCond = TheParser->getBuilder()->CreateICmpNE(LoopCond,
-//                                                     ConstantInt::get(TheParser->getContext(), APInt(1, 0)),
-//                                                     "loopcond");
-
-    auto LoopBlock = BasicBlock::Create(TheParser->getContext(), "loop", F);
-    auto AfterBlock = BasicBlock::Create(TheParser->getContext(), "afterloop", F);
 
     // if %loopcond is true; then go to %loop; else goto %afterloop
     TheParser->getBuilder()->CreateCondBr(LoopCond, LoopBlock, AfterBlock);
