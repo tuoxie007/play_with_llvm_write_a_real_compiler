@@ -378,6 +378,7 @@ class Parser {
     std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
     map<char, int> BinOpPrecedence;
     std::unique_ptr<Lexer> TheLexer;
+    std::string TopFuncName;
 
     unique_ptr<ExprAST> ParseIntegerLiteral(shared_ptr<Scope> scope);
     unique_ptr<ExprAST> ParseFloatLiteral(shared_ptr<Scope> scope);
@@ -447,6 +448,7 @@ public:
     LLVMContext &getContext() { return this->LLContext; };
     IRBuilder<> *getBuilder() { return Builder; };
     void RunFunction(Function *F) { TheFPM->run(*F); };
+    void SetTopFuncName(std::string &FuncName) { TopFuncName = FuncName; };
 };
 
 extern unique_ptr<Parser> TheParser;

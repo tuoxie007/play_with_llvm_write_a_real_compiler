@@ -121,7 +121,6 @@ Value *BinaryExprAST::codegen() {
             }
             else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy()) {
                 return TheParser->getBuilder()->CreateICmpSLT(L, R, "lttmp");
-//                return TheParser->getBuilder()->CreateUIToFP(L, Type::getInt64Ty(TheParser->getContext()), "booltmp");
             }
             else
                 assert(false && "not implemented");
@@ -133,7 +132,6 @@ Value *BinaryExprAST::codegen() {
             }
             else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy()) {
                 return TheParser->getBuilder()->CreateICmpSGT(L, R, "gttmp");
-//                return TheParser->getBuilder()->CreateUIToFP(R, Type::getInt64Ty(TheParser->getContext()), "booltmp");
             }
             else
                 assert(false && "not implemented");
@@ -186,7 +184,7 @@ Value *IfExprAST::codegen() {
     F->getBasicBlockList().push_back(MergeBlock);
     TheParser->getBuilder()->SetInsertPoint(MergeBlock);
 
-    auto PN = TheParser->getBuilder()->CreatePHI(Type::getInt8Ty(TheParser->getContext()), 2, "iftmp");
+    auto PN = TheParser->getBuilder()->CreatePHI(ThenV->getType(), 2, "iftmp");
 
     PN->addIncoming(ThenV, ThenBlock);
     PN->addIncoming(ElseV, ElseBlock);
@@ -244,7 +242,7 @@ Value *ForExprAST::codegen() {
     // %afterloop:
     TheParser->getBuilder()->SetInsertPoint(AfterBlock);
 
-    return Constant::getNullValue(Type::getInt8Ty(TheParser->getContext()));
+    return Constant::getNullValue(Type::getInt64Ty(TheParser->getContext()));
 }
 
 Value *VarExprAST::codegen() {

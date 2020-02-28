@@ -23,7 +23,8 @@
 //#define TEST "ifcond"
 //#define TEST "forloop"
 //#define TEST "formula"
-#define TEST "link"
+#define TEST "compound"
+//#define TEST "link"
 //#define TEST "exec"
 
 #ifdef TEST
@@ -49,6 +50,7 @@ int main(int argc, const char * argv[]) {
         std::map<std::string, std::string> opts;
         opts["jit"] = "0";
         opts["out"] = testsDir + "/" + TEST + ".o";
+        opts["obj"] = std::string(TEST) != "exec" ? "1" : "0";
 
         compile(src, opts);
     }

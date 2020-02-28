@@ -74,7 +74,9 @@ int compile(std::string &src, std::map<string, string> &opts) {
     cout << src << endl;
 
     std::string jit = opts["jit"];
+    std::string TopFuncName = opts["obj"] == "1" ? "__anon_expr" : "main";
     TheParser = std::make_unique<Parser>(jit == "1", src);
+    TheParser->SetTopFuncName(TopFuncName);
 
     MainLoop();
 

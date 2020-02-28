@@ -442,9 +442,7 @@ unique_ptr<PrototypeAST> Parser::ParseExtern() {
 unique_ptr<FunctionAST> Parser::ParseTopLevelExpr(shared_ptr<Scope> scope) {
     SourceLocation FnLoc = TheLexer->CurLoc;
     if (auto E = ParseExpr(scope)) {
-        string Name = "__anon_expr";
-//        string Name = "main";
-        auto Proto = make_unique<PrototypeAST>(FnLoc, tok_type_int, Name, vector<unique_ptr<VarExprAST>>());
+        auto Proto = make_unique<PrototypeAST>(FnLoc, tok_type_int, TopFuncName, vector<unique_ptr<VarExprAST>>());
         return make_unique<FunctionAST>(move(Proto), move(E));
     }
     return nullptr;
@@ -521,7 +519,7 @@ void Parser::HandleTopLevelExpression(shared_ptr<Scope> scope) {
                 InitializeModuleAndPassManager();
 
                 // Search the JIT for the __anon_expr symbol.
-                auto ExprSymbol = TheJIT->findSymbol("__anon_expr");
+                auto ExprSymbol = TheJIT->findSymbol(TopFuncName);
                 assert(ExprSymbol && "Function not found");
 
                 // Get the symbol's address and cast it to the right type (takes no
