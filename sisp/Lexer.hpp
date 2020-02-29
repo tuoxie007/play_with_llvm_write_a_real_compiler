@@ -15,7 +15,7 @@ using namespace std;
 
 typedef enum Token {
     tok_eof = -1,
-//    tok_def = -2,
+    tok_class = -2,
     tok_extern = -3,
     tok_identifier = -4,
 //    tok_number = -5,
@@ -66,7 +66,7 @@ static string tok_tos(Token t) {
     }
     switch (t) {
         case tok_eof: return "<eof>";
-//        case tok_def: return "<def>";
+        case tok_class: return "<class>";
         case tok_extern: return "<extern>";
         case tok_identifier: return "<id>";
 //        case tok_number: return "<number>";
@@ -101,7 +101,6 @@ public:
     Token LastChar = tok_space;
 
     string IdentifierStr;
-//    double NumVal;
     long IntegerVal;
     double FloatVal;
     string TheCode;

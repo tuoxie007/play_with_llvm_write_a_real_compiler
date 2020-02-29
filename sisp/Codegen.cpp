@@ -7,6 +7,7 @@
 //
 
 #include "Codegen.hpp"
+#include "llvm/IR/DerivedTypes.h"
 
 #include <vector>
 
@@ -420,4 +421,14 @@ Function *FunctionAST::codegen() {
     SispDbgInfo.LexicalBlocks.pop_back();
 
     return nullptr;
+}
+
+StructType * ClassDeclAST::codegen() {
+//    static StructType *create(LLVMContext &Context, ArrayRef<Type *> Elements,
+//                              StringRef Name, bool isPacked = false);
+    vector<Type *> Tys;
+    for (auto E = Members.begin(); E != Members.end(); E ++) {
+        Tys.push_back(getType((*E)->Type, TheParser->getContext()));
+    }
+    return StructType::create(TheParser->getContext(), Tys, string("class") + "." + Name, false);
 }

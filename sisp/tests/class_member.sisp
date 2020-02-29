@@ -1,0 +1,7 @@
+
+class Boy {
+  int age;
+}
+
+Boy b = Boy();
+b.age;

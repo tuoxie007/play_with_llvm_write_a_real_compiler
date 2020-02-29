@@ -39,7 +39,7 @@ extern "C" DLLEXPORT double printd(double X) {
 static int MainLoop() {
     auto scope = make_shared<Scope>();
     while (true) {
-//        cout << "CurTok: " << tok_tos(TheParser->getCurToken()) << endl;
+        cout << "CurTok: " << tok_tos(TheParser->getCurToken()) << endl;
         switch (TheParser->getCurToken()) {
             case tok_eof:
                 return 0;
@@ -47,7 +47,7 @@ static int MainLoop() {
             case tok_right_bracket:
                 TheParser->getNextToken();
                 break;
-//            case tok_def:
+            case tok_class:
             case tok_type_bool:
             case tok_type_int:
             case tok_type_float:

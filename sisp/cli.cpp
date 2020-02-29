@@ -23,9 +23,10 @@
 //#define TEST "ifcond"
 //#define TEST "forloop"
 //#define TEST "formula"
-#define TEST "compound"
+//#define TEST "compound"
 //#define TEST "link"
 //#define TEST "exec"
+#define TEST "class_member"
 
 #ifdef TEST
 

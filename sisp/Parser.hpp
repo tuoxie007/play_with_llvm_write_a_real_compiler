@@ -73,11 +73,14 @@ static Type * getType(Token type, LLVMContext &contxt) {
 }
 
 class ExprAST;
+class ClassDeclAST;
 
 static unsigned gId = 0;
 class Scope {
     map<string, unique_ptr<ExprAST>> Vars;
     map<string, AllocaInst *> VarVals;
+    map<string, unique_ptr<ClassDeclAST>> Classes;
+    map<string, StructType *> ClassTypes;
 
 public:
     shared_ptr<Scope> Parent;
@@ -86,11 +89,20 @@ public:
     Scope() { Id = ++ gId; }
     Scope(shared_ptr<Scope> parent): Parent(parent) { Id = ++ gId; }
 
-    void append(pair<string, unique_ptr<ExprAST>> V) {
+    void appendVal(pair<string, unique_ptr<ExprAST>> V) {
         Vars.insert(move(V));
     }
     void setVal(string var, AllocaInst *val) {
         VarVals[var] = val;
+    }
+    void appendClass(string name, unique_ptr<ClassDeclAST> C) {
+        Classes[name] = move(C);
+    }
+    const ClassDeclAST *getClass(string &name) {
+        return Classes[name].get();
+    }
+    void setClassType(string ClsName, StructType * ClsType) {
+        ClassTypes[ClsName] = ClsType;
     }
     AllocaInst *getVal(string var) {
         return VarVals[var] ?: (Parent->getVal(var) ?: nullptr);
@@ -194,7 +206,7 @@ public:
     Value *codegen() override;
     string &getName() { return Name; }
     string dumpJSON() override {
-        return FormatString("{`Type`: `Variable`, `Name`: `%s`}", Name.c_str());
+        return FormatString("{`type`: `Variable`, `Name`: `%s`}", Name.c_str());
     }
 };
 
@@ -213,7 +225,7 @@ public:
     string dumpJSON() override {
         string lhs = LHS->dumpJSON();
         string rhs = RHS->dumpJSON();
-        return FormatString("{`Type`: `Binary`, `Operator`: `%c`, `LHS`: %s, `RHS`: %s}", Op, LHS->dumpJSON().c_str(), RHS->dumpJSON().c_str());
+        return FormatString("{`type`: `Binary`, `Operator`: `%c`, `LHS`: %s, `RHS`: %s}", Op, LHS->dumpJSON().c_str(), RHS->dumpJSON().c_str());
     }
 };
 
@@ -307,13 +319,11 @@ class ForExprAST : public ExprAST {
 public:
     ForExprAST(shared_ptr<Scope> scope,
                unique_ptr<VarExprAST> var,
-//               unique_ptr<ExprAST> start,
                unique_ptr<ExprAST> end,
                unique_ptr<ExprAST> step,
                unique_ptr<ExprAST> body):
         ExprAST(scope),
         Var(move(var)),
-//        Start(move(start)),
         End(move(end)),
         Step(move(step)),
         Body(move(body)) {}
@@ -334,8 +344,39 @@ public:
 
     Value * codegen() override;
     string dumpJSON() override {
-        return FormatString("{`type`: `Unary`, `Operand`: %s", Operand->dumpJSON().c_str());
+        return FormatString("{`type`: `Unary`, `Operand`: `%s`}", Operand->dumpJSON().c_str());
     }
+};
+
+class MemberAST {
+public:
+    Token Type;
+    string Name;
+
+    MemberAST(Token type, string name) : Type(type), Name(name) {}
+
+    string dumpJSON() {
+        return FormatString("{`type`: `Member`, `Type`: `%s`, `Name`: `%s`}", tok_tos(Type).c_str(), Name.c_str());
+    };
+};
+
+class ClassDeclAST {
+    SourceLocation Loc;
+    shared_ptr<Scope> scope;
+    string Name;
+    vector<unique_ptr<MemberAST>> Members;
+
+public:
+  ClassDeclAST(shared_ptr<Scope> scope, SourceLocation loc, string name, vector<unique_ptr<MemberAST>> members)
+      : Loc(loc), scope(scope), Name(name), Members(move(members)) {}
+
+    const string& getName() const { return Name; };
+    const size_t getMemberSize() const { return Members.size(); };
+    const MemberAST *getMember(size_t i) const { return Members[i].get(); };
+    StructType *codegen();
+    string dumpJSON() {
+        return FormatString("{`Type`: `ClassDecl`, `Name`: `%s`}", Name.c_str());
+    };
 };
 
 static unique_ptr<ExprAST> LogError(std::string Str) {
@@ -395,6 +436,8 @@ class Parser {
     unique_ptr<FunctionAST> ParseDefinition(shared_ptr<Scope> scope);
     unique_ptr<PrototypeAST> ParseExtern();
     unique_ptr<FunctionAST> ParseTopLevelExpr(shared_ptr<Scope> scope);
+    unique_ptr<MemberAST> ParseMemberAST(shared_ptr<Scope> scope);
+    unique_ptr<ClassDeclAST> ParseClassDecl(shared_ptr<Scope> scope);
 
 public:
     Parser(bool jitEnabled, std::string src)

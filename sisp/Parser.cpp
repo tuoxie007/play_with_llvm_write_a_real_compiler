@@ -113,6 +113,7 @@ std::unique_ptr<ExprAST> Parser::ParseIdentifierExpr(shared_ptr<Scope> scope) {
 unique_ptr<ExprAST> Parser::ParsePrimary(shared_ptr<Scope> scope) {
     switch (TheLexer->CurTok) {
         case tok_identifier:
+            // TODO find the user-defined type
             return ParseIdentifierExpr(scope);
         case tok_integer_literal:
             return ParseIntegerLiteral(scope);
@@ -124,9 +125,6 @@ unique_ptr<ExprAST> Parser::ParsePrimary(shared_ptr<Scope> scope) {
             return ParseIfExpr(scope);
         case tok_for:
             return ParseForExpr(scope);
-        case tok_var:
-            assert(false && "invalid keyword var");
-            break;
         case tok_type_bool:
         case tok_type_int:
         case tok_type_float:
@@ -436,9 +434,58 @@ unique_ptr<FunctionAST> Parser::ParseTopLevelExpr(shared_ptr<Scope> scope) {
     return nullptr;
 }
 
+unique_ptr<MemberAST> Parser::ParseMemberAST(shared_ptr<Scope> scope) {
+    Token type = TheLexer->CurTok;
+    // TODO support all types
+    if (type != tok_type_int && type != tok_type_bool && type != tok_type_float) {
+        LogError("unimplemented member type");
+        return nullptr;
+    }
+    getNextToken();
+
+    if (TheLexer->CurTok != tok_identifier) {
+        LogError("expected identifier after member type");
+        return nullptr;
+    }
+
+    string name = TheLexer->IdentifierStr;
+    getNextToken();
+
+    if (TheLexer->CurTok != tok_colon) {
+        LogError("expected ';' after member name");
+        return nullptr;
+    }
+    getNextToken();
+
+    return make_unique<MemberAST>(type, name);
+}
+
+unique_ptr<ClassDeclAST> Parser::ParseClassDecl(shared_ptr<Scope> scope) {
+    SourceLocation ClsLoc = TheLexer->CurLoc;
+
+    getNextToken();
+    string Name = TheLexer->IdentifierStr;
+
+    getNextToken();
+    if (TheLexer->CurTok != tok_left_bracket) {
+        LogError("expected '{' after class name");
+        return nullptr;
+    }
+
+    getNextToken();
+    vector<unique_ptr<MemberAST>> Members;
+    while (TheLexer->CurTok != tok_right_bracket) {
+        auto Member = ParseMemberAST(scope);
+        Members.push_back(move(Member));
+    }
+
+    getNextToken();
+    return make_unique<ClassDeclAST>(scope, ClsLoc, Name, move(Members));
+}
+
 void Parser::InitializeModuleAndPassManager() {
     // Open a new module.
-    TheModule = make_unique<Module>("Sisp Demo 10", LLContext);
+    TheModule = make_unique<Module>("Sisp Demo", LLContext);
     TheModule->setDataLayout(TheJIT->getTargetMachine().createDataLayout());
 
     // Create a new pass manager attached to it.
@@ -459,7 +506,15 @@ void Parser::InitializeModuleAndPassManager() {
 }
 
 void Parser::HandleDefinition(shared_ptr<Scope> scope) {
-    if (TheLexer->getNextToken(2) == tok_left_paren) {
+    if (TheLexer->CurTok == tok_class) {
+        if (auto ClsDecl = ParseClassDecl(scope)) {
+            cout << ClsDecl->dumpJSON() << endl;
+            ClsDecl->codegen();
+            scope->appendClass(move(ClsDecl));
+        } else {
+            LogError("Parse ClassDecl failed");
+        }
+    } else if (TheLexer->getNextToken(2) == tok_left_paren) {
         if (auto FnAST = ParseDefinition(scope)) {
             cout << FnAST->dumpJSON() << endl;
             if (auto *FnIR = FnAST->codegen()) {
@@ -472,8 +527,7 @@ void Parser::HandleDefinition(shared_ptr<Scope> scope) {
                 }
             }
         } else {
-            // Skip token for error recovery.
-            getNextToken();
+            LogError("Parse Function failed");
         }
     } else {
         HandleTopLevelExpression(scope);
