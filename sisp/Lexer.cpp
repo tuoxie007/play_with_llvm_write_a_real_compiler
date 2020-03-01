@@ -73,6 +73,11 @@ Token Lexer::getNextToken(unsigned ForwardStep) {
             return CurTok = tok_identifier;
         }
 
+        if (LastChar == tok_dot) {
+            LastChar = GetChar();
+            return CurTok = tok_dot;
+        }
+
         if (isdigit(LastChar) || LastChar == tok_dot) {
             string NumStr;
             do {
@@ -112,6 +117,7 @@ Token Lexer::getNextToken(unsigned ForwardStep) {
     SourceLocation SavedCurLoc = CurLoc;
     Token SavedCurTok = CurTok;
     string::size_type SavedIndex = Index;
+    string SavedIdentifierStr = IdentifierStr;
 
     Token Tok = (Token)0;
     for (unsigned i = 0; i < ForwardStep; i++) {
@@ -121,6 +127,7 @@ Token Lexer::getNextToken(unsigned ForwardStep) {
     CurLoc = SavedCurLoc;
     CurTok = SavedCurTok;
     Index = SavedIndex;
+    IdentifierStr = SavedIdentifierStr;
 
     return Tok;
 }

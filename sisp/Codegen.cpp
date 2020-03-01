@@ -146,6 +146,25 @@ Value *BinaryExprAST::codegen() {
     }
 }
 
+Value *MemberAccessAST::codegen() {
+    // TODO ExprAST has no Type
+    VariableExprAST *VarExpr = static_cast<VariableExprAST *>(Var.get());
+    auto VT = scope->getValType(VarExpr->getName());
+    auto ClsDecl = scope->getClass(VT.ClassName);
+    unsigned Idx = ClsDecl->indexOfMember(Member);
+    auto MT = getType(ClsDecl->getMember(Idx)->Type, TheParser->getContext());
+    auto V = Var->codegen();
+    auto ST = V->getType()->getScalarType();
+    auto Obj = TheParser->getBuilder()->CreateLoad(ST->getPointerTo(), V, "objtmp");
+    auto ET = cast<PointerType>(Obj->getType()->getScalarType())->getElementType();
+    auto ElePtr = TheParser->getBuilder()->CreateStructGEP(ET, Obj, Idx);
+    if (IsLeftValue) {
+        return ElePtr;
+    }
+    auto EleVal = TheParser->getBuilder()->CreateLoad(MT, ElePtr, string(".") + Member);
+    return EleVal;
+}
+
 Value *IfExprAST::codegen() {
     SispDbgInfo.emitLocation(this);
     auto CondV = Cond->codegen();
@@ -255,12 +274,14 @@ Value *VarExprAST::codegen() {
         InitVal = Init->codegen();
         if (!InitVal)
             return nullptr;
-    } else if (Type == tok_type_float) {
+    } else if (Type.TypeID == VarTypeFloat) {
         InitVal = ConstantFP::get(TheParser->getContext(), APFloat(0.0));
-    } else if (Type == tok_type_bool) {
+    } else if (Type.TypeID == VarTypeBool) {
         InitVal = ConstantInt::get(TheParser->getContext(), APInt(1, 0));
-    } else if (Type == tok_type_int) {
+    } else if (Type.TypeID == VarTypeInt) {
         InitVal = ConstantInt::get(TheParser->getContext(), APInt(64, 0));
+    } else if (Type.TypeID == VarTypeObject) {
+        InitVal = ConstantPointerNull::get(PointerType::getUnqual(scope->getClassType(Type.ClassName)));
     } else {
         assert(false && "not implemented type");
     }
@@ -290,10 +311,10 @@ Value *CompoundExprAST::codegen() {
     int i = 0;
     Value *RetVal = nullptr;
     for (auto Expr = Exprs.begin(); Expr != Exprs.end(); Expr ++) {
-//        cout << "subExpr " << to_string(i++) << endl;
+        cout << "subExpr " << to_string(i++) << endl;
         RetVal = (*Expr)->codegen();
-        if (!RetVal)
-            return nullptr;
+//        if (!RetVal)
+//            return nullptr;
     }
     return RetVal ?: Constant::getNullValue(Type::getInt64Ty(TheParser->getContext()));;
 }
@@ -302,8 +323,13 @@ Value *CallExprAST::codegen() {
     SispDbgInfo.emitLocation(this);
     // Look up the name in the global module table.
     Function *CalleeF = TheParser->getFunction(Callee);
-    if (!CalleeF)
-        return LogErrorV((string("Unknown function referenced ") + Callee));
+    if (!CalleeF) {
+        auto ClassType = scope->getClassType(Callee);
+        if (!ClassType)
+            return LogErrorV((string("Unknown function referenced ") + Callee));
+        auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
+        return Parser::CreateEntryBlockAlloca(F, ClassType, "obj");
+    }
 
     // If argument mismatch error.
     if (CalleeF->arg_size() != Args.size())
@@ -322,7 +348,7 @@ Value *CallExprAST::codegen() {
 Function *PrototypeAST::codegen() {
     vector<llvm::Type *> ArgTypes;
     for (auto E = Args.begin(); E != Args.end(); E ++) {
-        llvm::Type *ArgType = getType((*E)->getType(), TheParser->getContext());
+        llvm::Type *ArgType = (*E)->getIRType(TheParser->getContext());
         ArgTypes.push_back(ArgType);
     }
     llvm::Type *TheRetType = getType(RetType, TheParser->getContext());
@@ -424,11 +450,11 @@ Function *FunctionAST::codegen() {
 }
 
 StructType * ClassDeclAST::codegen() {
-//    static StructType *create(LLVMContext &Context, ArrayRef<Type *> Elements,
-//                              StringRef Name, bool isPacked = false);
     vector<Type *> Tys;
     for (auto E = Members.begin(); E != Members.end(); E ++) {
         Tys.push_back(getType((*E)->Type, TheParser->getContext()));
     }
-    return StructType::create(TheParser->getContext(), Tys, string("class") + "." + Name, false);
+    auto ST = StructType::create(TheParser->getContext(), Tys, string("class") + "." + Name, false);
+    scope->setClassType(Name, ST);
+    return ST;
 }

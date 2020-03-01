@@ -1,7 +1,10 @@
 
 class Boy {
   int age;
+  int tall;
 }
 
-Boy b = Boy();
-b.age;
+{
+  Boy b = Boy();
+  b.tall;
+}

@@ -72,12 +72,31 @@ static Type * getType(Token type, LLVMContext &contxt) {
     return ArgType;
 }
 
+enum VarTypeID {
+    VarTypeUnkown = 0,
+    VarTypeBool,
+    VarTypeInt,
+    VarTypeFloat,
+    VarTypeString,
+    VarTypeArray,
+    VarTypeClass,
+    VarTypeObject,
+};
+
+class VarType {
+public:
+    VarTypeID TypeID;
+    string ClassName;
+    VarType() {}
+    VarType(VarTypeID T, string C = ""): TypeID(T), ClassName(C) {}
+};
+
 class ExprAST;
 class ClassDeclAST;
 
 static unsigned gId = 0;
 class Scope {
-    map<string, unique_ptr<ExprAST>> Vars;
+    map<string, VarType> VarTypes;
     map<string, AllocaInst *> VarVals;
     map<string, unique_ptr<ClassDeclAST>> Classes;
     map<string, StructType *> ClassTypes;
@@ -89,23 +108,35 @@ public:
     Scope() { Id = ++ gId; }
     Scope(shared_ptr<Scope> parent): Parent(parent) { Id = ++ gId; }
 
-    void appendVal(pair<string, unique_ptr<ExprAST>> V) {
-        Vars.insert(move(V));
+    void setValType(string Name, VarType Type) {
+        VarTypes[Name] = Type;
+    }
+    const VarType getValType(const string &name) {
+        if (VarTypes[name].TypeID) return VarTypes[name];
+        if (Parent) return Parent->getValType(name);
+        return VarType(VarTypeUnkown);
     }
     void setVal(string var, AllocaInst *val) {
         VarVals[var] = val;
     }
+    AllocaInst *getVal(const string name) {
+        return VarVals[name] ?: (Parent ? Parent->getVal(name) : nullptr);
+    }
     void appendClass(string name, unique_ptr<ClassDeclAST> C) {
         Classes[name] = move(C);
     }
-    const ClassDeclAST *getClass(string &name) {
-        return Classes[name].get();
+    const ClassDeclAST *getClass(const string &name) {
+        if (Classes[name]) return Classes[name].get();
+        if (Parent) return Parent->getClass(name);
+        return nullptr;
     }
     void setClassType(string ClsName, StructType * ClsType) {
         ClassTypes[ClsName] = ClsType;
     }
-    AllocaInst *getVal(string var) {
-        return VarVals[var] ?: (Parent->getVal(var) ?: nullptr);
+    StructType * getClassType(const string ClsName) {
+        if (ClassTypes[ClsName]) return ClassTypes[ClsName];
+        if (Parent) return Parent->getClassType(ClsName);
+        return nullptr;
     }
 };
 
@@ -147,16 +178,27 @@ static unique_ptr<ExprAST> ParseExpr(shared_ptr<Scope> scope);
 
 class VarExprAST : public ExprAST {
     string Name;
-    Token Type;
+    VarType Type;
     unique_ptr<ExprAST> Init;
 
 public:
-    VarExprAST(shared_ptr<Scope> scope, Token type, string name, unique_ptr<ExprAST> init)
-        : ExprAST(scope), Type(type), Name(name), Init(move(init)) {}
+    VarExprAST(shared_ptr<Scope> scope, VarType type, string name, unique_ptr<ExprAST> init)
+        : ExprAST(scope), Type(type), Name(name), Init(move(init)) {
+            scope->setValType(name, type);
+        }
 
     Value *codegen() override;
     const string &getName() const { return Name; }
-    const Token getType() const { return Type; }
+    const VarType &getType() const { return Type; }
+    llvm::Type *getIRType(LLVMContext &Context) const {
+        switch (Type.TypeID) {
+            case VarTypeBool: return Type::getInt1Ty(Context);
+            case VarTypeInt: return Type::getInt64Ty(Context);
+            case VarTypeFloat: return Type::getDoubleTy(Context);
+            case VarTypeObject: return scope->getClassType(Type.ClassName);
+            default: return nullptr;
+        }
+    }
     ExprAST * getInit() const { return Init.get(); }
 
     string dumpJSON() override {
@@ -242,6 +284,24 @@ public:
     Value *codegen() override;
     string dumpJSON() override {
         return FormatString("{`type`: `Call`, `Callee`: `%s`, `Args`: %s}", Callee.c_str(), ExprAST::listDumpJSON(Args).c_str());
+    }
+};
+
+class MemberAccessAST : public ExprAST {
+    // TODO
+    // SourceLocation Loc;
+
+    unique_ptr<ExprAST> Var;
+    string Member;
+    bool IsLeftValue;
+
+public:
+    MemberAccessAST(shared_ptr<Scope> scope, unique_ptr<ExprAST> var, string member, bool isLeftValue = false)
+        : ExprAST(scope), Var(move(var)), Member(member) {}
+
+    Value *codegen() override;
+    string dumpJSON() {
+        return FormatString("{`type`: `MemberAccess`, `Var`: %s, `Member`: `%s`}", Var->dumpJSON().c_str(), Member.c_str());
     }
 };
 
@@ -373,6 +433,13 @@ public:
     const string& getName() const { return Name; };
     const size_t getMemberSize() const { return Members.size(); };
     const MemberAST *getMember(size_t i) const { return Members[i].get(); };
+    const unsigned indexOfMember(const string &MemName) const {
+        unsigned idx = 0;
+        for (auto E = Members.begin(); E != Members.end(); E ++, idx ++) {
+            if ((*E)->Name == MemName) break;
+        }
+        return idx;
+    }
     StructType *codegen();
     string dumpJSON() {
         return FormatString("{`Type`: `ClassDecl`, `Name`: `%s`}", Name.c_str());
@@ -451,6 +518,7 @@ public:
         BinOpPrecedence[tok_add] = 20;
         BinOpPrecedence[tok_sub] = 20;
         BinOpPrecedence[tok_mul] = 40;
+        BinOpPrecedence[tok_dot] = 50;
 
         getNextToken();
 
@@ -491,6 +559,16 @@ public:
     IRBuilder<> *getBuilder() { return Builder; };
     void RunFunction(Function *F) { TheFPM->run(*F); };
     void SetTopFuncName(std::string &FuncName) { TopFuncName = FuncName; };
+    VarType getVarType(Token Tok) {
+        switch (Tok) {
+            case tok_type_bool: return VarType(VarTypeBool);
+            case tok_type_int: return VarType(VarTypeInt);
+            case tok_type_float: return VarType(VarTypeFloat);
+            case tok_type_string: return VarType(VarTypeString);
+            case tok_type_object: return VarType(VarTypeObject, TheLexer->IdentifierStr);
+            default: return VarType(VarTypeUnkown);
+        }
+    }
 };
 
 extern unique_ptr<Parser> TheParser;

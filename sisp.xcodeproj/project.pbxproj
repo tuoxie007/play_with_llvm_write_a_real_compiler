@@ -2812,7 +2812,7 @@
 		BFC34C1123F911430086F9EE /* Analysis.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Analysis.h; sourceTree = "<group>"; };
 		BFC34C1223F911430086F9EE /* lto.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lto.h; sourceTree = "<group>"; };
 		BFC34C1323F911430086F9EE /* Support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Support.h; sourceTree = "<group>"; };
-		BFC34C1F23FD22930086F9EE /* Lexer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Lexer.cpp; sourceTree = "<group>"; };
+		BFC34C1F23FD22930086F9EE /* Lexer.cpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Lexer.cpp; sourceTree = "<group>"; };
 		BFC34C2023FD22930086F9EE /* Lexer.hpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.h; path = Lexer.hpp; sourceTree = "<group>"; };
 		BFC34C2223FD22B90086F9EE /* Parser.cpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Parser.cpp; sourceTree = "<group>"; };
 		BFC34C2323FD22B90086F9EE /* Parser.hpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.h; path = Parser.hpp; sourceTree = "<group>"; };

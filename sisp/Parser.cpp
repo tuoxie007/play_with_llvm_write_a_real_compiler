@@ -114,6 +114,12 @@ unique_ptr<ExprAST> Parser::ParsePrimary(shared_ptr<Scope> scope) {
     switch (TheLexer->CurTok) {
         case tok_identifier:
             // TODO find the user-defined type
+            if (scope->getClass(TheLexer->IdentifierStr)) {
+                if (TheLexer->getNextToken(1) == tok_left_paren) {
+                    return ParseIdentifierExpr(scope);
+                }
+                return ParseVarExpr(scope);
+            }
             return ParseIdentifierExpr(scope);
         case tok_integer_literal:
             return ParseIntegerLiteral(scope);
@@ -191,6 +197,22 @@ unique_ptr<ExprAST> Parser::ParseBinOpRHS(shared_ptr<Scope> scope,
 
         char BinOp = TheLexer->CurTok;
         SourceLocation BinLoc = TheLexer->CurLoc;
+
+        if (TheLexer->CurTok == tok_dot) {
+            getNextToken();
+
+            if (TheLexer->CurTok != tok_identifier) {
+                return LogError("expected identifier after '.'");
+            }
+
+            string MemName = TheLexer->IdentifierStr;
+            getNextToken();
+            if (TheLexer->CurTok == tok_colon)
+                getNextToken();
+
+            bool IsLeftValue = TheLexer->getNextToken(1) == tok_equal;
+            return make_unique<MemberAccessAST>(scope, move(LHS), MemName, IsLeftValue);
+        }
         getNextToken();
 
         auto RHS = ParseUnary(scope);
@@ -311,9 +333,17 @@ unique_ptr<ExprAST> Parser::ParseUnary(shared_ptr<Scope> scope) {
 
 unique_ptr<ExprAST> Parser::ParseVarExpr(shared_ptr<Scope> scope) {
 
-    Token Type = TheLexer->CurTok;
-    getNextToken();
+    Token Tok = TheLexer->CurTok;
+    VarType Type = getVarType(Tok);
+    if (Type.TypeID == VarTypeUnkown) {
+        if (scope->getClass(TheLexer->IdentifierStr)) {
+            Type = VarType(VarTypeObject, TheLexer->IdentifierStr);
+        } else {
+            return LogError("unkown var type");
+        }
+    }
 
+    getNextToken();
     if (TheLexer->CurTok != tok_identifier) {
         return LogError("expected id after type");
     }
@@ -510,7 +540,7 @@ void Parser::HandleDefinition(shared_ptr<Scope> scope) {
         if (auto ClsDecl = ParseClassDecl(scope)) {
             cout << ClsDecl->dumpJSON() << endl;
             ClsDecl->codegen();
-            scope->appendClass(move(ClsDecl));
+            scope->appendClass(ClsDecl->getName(), move(ClsDecl));
         } else {
             LogError("Parse ClassDecl failed");
         }
@@ -587,7 +617,7 @@ AllocaInst * Parser::CreateEntryBlockAlloca(Function *F, Type *T, const string &
 }
 
 AllocaInst * Parser::CreateEntryBlockAlloca(Function *F, VarExprAST *Var) {
-    return Parser::CreateEntryBlockAlloca(F, getType(Var->getType(), F->getContext()), Var->getName());
+    return Parser::CreateEntryBlockAlloca(F, Var->getIRType(F->getContext()), Var->getName());
 }
 
 Function * Parser::getFunction(std::string Name) {
