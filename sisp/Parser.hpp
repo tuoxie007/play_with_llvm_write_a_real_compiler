@@ -293,11 +293,13 @@ class MemberAccessAST : public ExprAST {
 
     unique_ptr<ExprAST> Var;
     string Member;
-    bool IsLeftValue;
+    unique_ptr<ExprAST> RHS;
 
 public:
-    MemberAccessAST(shared_ptr<Scope> scope, unique_ptr<ExprAST> var, string member, bool isLeftValue = false)
+    MemberAccessAST(shared_ptr<Scope> scope, unique_ptr<ExprAST> var, string member)
         : ExprAST(scope), Var(move(var)), Member(member) {}
+    MemberAccessAST(shared_ptr<Scope> scope, unique_ptr<ExprAST> var, string member, unique_ptr<ExprAST> RHS)
+        : ExprAST(scope), Var(move(var)), Member(member), RHS(move(RHS)) {}
 
     Value *codegen() override;
     string dumpJSON() {

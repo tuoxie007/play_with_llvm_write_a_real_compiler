@@ -207,11 +207,21 @@ unique_ptr<ExprAST> Parser::ParseBinOpRHS(shared_ptr<Scope> scope,
 
             string MemName = TheLexer->IdentifierStr;
             getNextToken();
+
+            if (TheLexer->CurTok == tok_equal) {
+                getNextToken();
+
+                auto RHS = ParseExpr(scope);
+                if (!RHS)
+                    LogError("expected expression after member assignment");
+
+                return make_unique<MemberAccessAST>(scope, move(LHS), MemName, move(RHS));
+            }
+
             if (TheLexer->CurTok == tok_colon)
                 getNextToken();
 
-            bool IsLeftValue = TheLexer->getNextToken(1) == tok_equal;
-            return make_unique<MemberAccessAST>(scope, move(LHS), MemName, IsLeftValue);
+            return make_unique<MemberAccessAST>(scope, move(LHS), MemName);
         }
         getNextToken();
 

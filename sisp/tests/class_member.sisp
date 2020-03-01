@@ -4,7 +4,9 @@ class Boy {
   int tall;
 }
 
+int boyTall()
 {
   Boy b = Boy();
+  b.tall = 180;
   b.tall;
 }

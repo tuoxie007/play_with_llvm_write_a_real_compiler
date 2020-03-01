@@ -156,13 +156,22 @@ Value *MemberAccessAST::codegen() {
     auto V = Var->codegen();
     auto ST = V->getType()->getScalarType();
     auto Obj = TheParser->getBuilder()->CreateLoad(ST->getPointerTo(), V, "objtmp");
-    auto ET = cast<PointerType>(Obj->getType()->getScalarType())->getElementType();
-    auto ElePtr = TheParser->getBuilder()->CreateStructGEP(ET, Obj, Idx);
-    if (IsLeftValue) {
-        return ElePtr;
+//    auto ET = cast<PointerType>(Obj->getType()->getScalarType())->getElementType();
+//    auto ElePtr = TheParser->getBuilder()->CreateStructGEP(Obj, Idx, string(".") + Member);
+    Value *Idxs[] = {
+      ConstantInt::get(Type::getInt32Ty(TheParser->getContext()), Idx),
+    };
+    auto ElePtr = TheParser->getBuilder()->CreateInBoundsGEP(Obj, Idxs, string(".") + Member);
+    if (RHS) {
+        Value *RVal;
+        RVal = RHS->codegen();
+        if (!RVal)
+            return nullptr;
+        TheParser->getBuilder()->CreateStore(ElePtr, RVal);
+        return TheParser->getBuilder()->CreateLoad(ElePtr);
     }
-    auto EleVal = TheParser->getBuilder()->CreateLoad(MT, ElePtr, string(".") + Member);
-    return EleVal;
+    auto Ele = TheParser->getBuilder()->CreateLoad(MT->getPointerTo(), ElePtr);
+    return TheParser->getBuilder()->CreateLoad(Ele);
 }
 
 Value *IfExprAST::codegen() {
