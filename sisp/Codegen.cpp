@@ -68,6 +68,8 @@ Value *VariableExprAST::codegen() {
 
 //    cout << "VariableExprAST::codegen()" << V << endl;
     SispDbgInfo.emitLocation(this);
+    if (V->getType()->isPointerTy())
+        return V;
     return TheParser->getBuilder()->CreateLoad(V, Name);
 }
 
@@ -147,31 +149,22 @@ Value *BinaryExprAST::codegen() {
 }
 
 Value *MemberAccessAST::codegen() {
-    // TODO ExprAST has no Type
-    VariableExprAST *VarExpr = static_cast<VariableExprAST *>(Var.get());
-    auto VT = scope->getValType(VarExpr->getName());
-    auto ClsDecl = scope->getClass(VT.ClassName);
+    auto V = Var->codegen();
+    string StructName = V->getType()->getPointerElementType()->getStructName();
+    auto PrefixLen = string("class.").length();
+    string ClassName = StructName.substr(PrefixLen, StructName.length() - PrefixLen);
+    auto ClsDecl = scope->getClass(ClassName);
     unsigned Idx = ClsDecl->indexOfMember(Member);
     auto MT = getType(ClsDecl->getMember(Idx)->Type, TheParser->getContext());
-    auto V = Var->codegen();
-    auto ST = V->getType()->getScalarType();
-    auto Obj = TheParser->getBuilder()->CreateLoad(ST->getPointerTo(), V, "objtmp");
-//    auto ET = cast<PointerType>(Obj->getType()->getScalarType())->getElementType();
-//    auto ElePtr = TheParser->getBuilder()->CreateStructGEP(Obj, Idx, string(".") + Member);
-    Value *Idxs[] = {
-      ConstantInt::get(Type::getInt32Ty(TheParser->getContext()), Idx),
-    };
-    auto ElePtr = TheParser->getBuilder()->CreateInBoundsGEP(Obj, Idxs, string(".") + Member);
+    auto ElePtr = TheParser->getBuilder()->CreateStructGEP(V, Idx, string(".") + Member); // i64*
     if (RHS) {
         Value *RVal;
-        RVal = RHS->codegen();
+        RVal = RHS->codegen();//i64
         if (!RVal)
             return nullptr;
-        TheParser->getBuilder()->CreateStore(ElePtr, RVal);
-        return TheParser->getBuilder()->CreateLoad(ElePtr);
+        return TheParser->getBuilder()->CreateStore(RVal, ElePtr);
     }
-    auto Ele = TheParser->getBuilder()->CreateLoad(MT->getPointerTo(), ElePtr);
-    return TheParser->getBuilder()->CreateLoad(Ele);
+    return TheParser->getBuilder()->CreateLoad(MT, ElePtr);
 }
 
 Value *IfExprAST::codegen() {
@@ -281,8 +274,8 @@ Value *VarExprAST::codegen() {
     Value *InitVal;
     if (Init) {
         InitVal = Init->codegen();
-        if (!InitVal)
-            return nullptr;
+        scope->setVal(Name, InitVal);
+        return InitVal;
     } else if (Type.TypeID == VarTypeFloat) {
         InitVal = ConstantFP::get(TheParser->getContext(), APFloat(0.0));
     } else if (Type.TypeID == VarTypeBool) {
@@ -337,7 +330,8 @@ Value *CallExprAST::codegen() {
         if (!ClassType)
             return LogErrorV((string("Unknown function referenced ") + Callee));
         auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
-        return Parser::CreateEntryBlockAlloca(F, ClassType, "obj");
+        auto Alloca = Parser::CreateEntryBlockAlloca(F, ClassType, "obj");
+        return TheParser->getBuilder()->CreateBitCast(Alloca, ClassType->getPointerTo());
     }
 
     // If argument mismatch error.

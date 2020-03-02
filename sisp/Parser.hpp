@@ -97,7 +97,7 @@ class ClassDeclAST;
 static unsigned gId = 0;
 class Scope {
     map<string, VarType> VarTypes;
-    map<string, AllocaInst *> VarVals;
+    map<string, Value *> VarVals;
     map<string, unique_ptr<ClassDeclAST>> Classes;
     map<string, StructType *> ClassTypes;
 
@@ -116,10 +116,10 @@ public:
         if (Parent) return Parent->getValType(name);
         return VarType(VarTypeUnkown);
     }
-    void setVal(string var, AllocaInst *val) {
+    void setVal(string var, Value *val) {
         VarVals[var] = val;
     }
-    AllocaInst *getVal(const string name) {
+    Value *getVal(const string name) {
         return VarVals[name] ?: (Parent ? Parent->getVal(name) : nullptr);
     }
     void appendClass(string name, unique_ptr<ClassDeclAST> C) {
