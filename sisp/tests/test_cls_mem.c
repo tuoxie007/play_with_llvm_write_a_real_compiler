@@ -1,5 +1,5 @@
 extern long boyTall();
 
 int main() {
-  return boyTall();
+    return (int)boyTall();
 }

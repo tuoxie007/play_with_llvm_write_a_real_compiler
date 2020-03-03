@@ -54,7 +54,7 @@ static inline std::string FormatString(const char *fmt,...)
 }
 
 static Type * getType(Token type, LLVMContext &contxt) {
-    llvm::Type *ArgType;
+    Type *ArgType;
     switch (type) {
         case tok_type_bool:
             ArgType = llvm::Type::getInt1Ty(contxt);
@@ -117,6 +117,9 @@ public:
         return VarType(VarTypeUnkown);
     }
     void setVal(string var, Value *val) {
+        if (var=="tall")
+            cout << "setVal " << var << " => " << val->getType()->getTypeID() << endl;
+
         VarVals[var] = val;
     }
     Value *getVal(const string name) {
@@ -134,8 +137,10 @@ public:
         ClassTypes[ClsName] = ClsType;
     }
     StructType * getClassType(const string ClsName) {
-        if (ClassTypes[ClsName]) return ClassTypes[ClsName];
-        if (Parent) return Parent->getClassType(ClsName);
+        if (ClassTypes[ClsName])
+            return ClassTypes[ClsName];
+        if (Parent)
+            return Parent->getClassType(ClsName);
         return nullptr;
     }
 };
@@ -201,7 +206,7 @@ public:
     }
     ExprAST * getInit() const { return Init.get(); }
 
-    string dumpJSON() override {
+    string dumpJSON() {
 //        return format("{} {}!", "Hello", "world", "something"); // OK, produces "Hello world!"
         return FormatString("{`type`: `Var`, `Name`: `%s`}", Name.c_str());
     }
@@ -213,7 +218,7 @@ class CompoundExprAST : public ExprAST {
 public:
     CompoundExprAST(shared_ptr<Scope> scope, vector<unique_ptr<ExprAST>> exprs): ExprAST(scope), Exprs(move(exprs)) {}
     Value *codegen() override;
-    string dumpJSON() override {
+    string dumpJSON() {
         return FormatString("{`type`: `Compound`, `Exprs`: %s]}", ExprAST::listDumpJSON(Exprs).c_str());
     }
 };
@@ -224,7 +229,7 @@ class IntegerLiteralAST : public ExprAST {
 public:
     IntegerLiteralAST(shared_ptr<Scope> scope, long val): ExprAST(scope), Val(val) {}
     Value *codegen() override;
-    string dumpJSON() override {
+    string dumpJSON() {
         return FormatString("{`type`: `IntegerLiteral`, `Val`: `%s`}", to_string(Val).c_str());
     }
 };
@@ -235,7 +240,7 @@ class FloatLiteralAST : public ExprAST {
 public:
     FloatLiteralAST(shared_ptr<Scope> scope, double val): ExprAST(scope), Val(val) {}
     Value *codegen() override;
-    string dumpJSON() override {
+    string dumpJSON() {
         return FormatString("{`type`: `FloatLiteral`, `Val`: `%s`}", to_string(Val).c_str());
     }
 };
@@ -247,7 +252,7 @@ public:
     VariableExprAST(shared_ptr<Scope> scope, SourceLocation loc, const string &name) : ExprAST(scope, loc), Name(name) {}
     Value *codegen() override;
     string &getName() { return Name; }
-    string dumpJSON() override {
+    string dumpJSON() {
         return FormatString("{`type`: `Variable`, `Name`: `%s`}", Name.c_str());
     }
 };
@@ -264,7 +269,7 @@ public:
                   unique_ptr<ExprAST> rhs)
         : ExprAST(scope, loc), Op(op), LHS(move(lhs)), RHS(move(rhs)) {}
     Value *codegen() override;
-    string dumpJSON() override {
+    string dumpJSON() {
         string lhs = LHS->dumpJSON();
         string rhs = RHS->dumpJSON();
         return FormatString("{`type`: `Binary`, `Operator`: `%c`, `LHS`: %s, `RHS`: %s}", Op, LHS->dumpJSON().c_str(), RHS->dumpJSON().c_str());
@@ -282,8 +287,29 @@ public:
                 vector<unique_ptr<ExprAST>> args)
         : ExprAST(scope, loc), Callee(callee), Args(move(args)) {}
     Value *codegen() override;
-    string dumpJSON() override {
+    string dumpJSON() {
         return FormatString("{`type`: `Call`, `Callee`: `%s`, `Args`: %s}", Callee.c_str(), ExprAST::listDumpJSON(Args).c_str());
+    }
+};
+
+class MethodCallAST : public ExprAST {
+    // TODO
+    // SourceLocation Loc;
+
+    unique_ptr<ExprAST> Var;
+    string Callee;
+    vector<unique_ptr<ExprAST>> Args;
+
+public:
+    MethodCallAST(shared_ptr<Scope> scope,
+//                  SourceLocation loc,
+                  unique_ptr<ExprAST> var,
+                  const string &callee,
+                  vector<unique_ptr<ExprAST>> args)
+        : ExprAST(scope), Var(move(var)), Callee(callee), Args(move(args)) {}
+    Value *codegen() override;
+    string dumpJSON() {
+        return FormatString("{`type`: `MethodCall`, `Var`: %s, `Callee`: `%s`, `Args`: %s}", Var->dumpJSON().c_str(), Callee.c_str(), ExprAST::listDumpJSON(Args).c_str());
     }
 };
 
@@ -369,7 +395,7 @@ public:
         : ExprAST(scope, loc), Cond(move(cond)), Then(move(then)), Else(move(elseE)) {}
 
     Value * codegen() override;
-    string dumpJSON() override {
+    string dumpJSON() {
         return FormatString("{`type`: `If`, `Cond`: %s, `Then`: %s, `Else`: %s}", Cond->dumpJSON().c_str(), Then->dumpJSON().c_str(), Else->dumpJSON().c_str());
     }
 };
@@ -391,7 +417,7 @@ public:
         Body(move(body)) {}
 
     Value * codegen() override;
-    string dumpJSON() override {
+    string dumpJSON() {
         return FormatString("{`type`: `For`, `Var`: %s, `End`: %s, `Step`: %s, `Body`: %s}", Var->dumpJSON().c_str(), End->dumpJSON().c_str(), Step->dumpJSON().c_str(), Body->dumpJSON().c_str());
     }
 };
@@ -405,7 +431,7 @@ public:
         : ExprAST(scope), Opcode(opcode), Operand(move(operand)) {}
 
     Value * codegen() override;
-    string dumpJSON() override {
+    string dumpJSON() {
         return FormatString("{`type`: `Unary`, `Operand`: `%s`}", Operand->dumpJSON().c_str());
     }
 };
@@ -427,14 +453,20 @@ class ClassDeclAST {
     shared_ptr<Scope> scope;
     string Name;
     vector<unique_ptr<MemberAST>> Members;
+    vector<unique_ptr<FunctionAST>> Methods;
 
 public:
-  ClassDeclAST(shared_ptr<Scope> scope, SourceLocation loc, string name, vector<unique_ptr<MemberAST>> members)
-      : Loc(loc), scope(scope), Name(name), Members(move(members)) {}
+  ClassDeclAST(shared_ptr<Scope> scope,
+               SourceLocation loc,
+               string name,
+               vector<unique_ptr<MemberAST>> members,
+               vector<unique_ptr<FunctionAST>> methods)
+      : Loc(loc), scope(scope), Name(name),
+        Members(move(members)), Methods(move(methods)) {}
 
-    const string& getName() const { return Name; };
-    const size_t getMemberSize() const { return Members.size(); };
-    const MemberAST *getMember(size_t i) const { return Members[i].get(); };
+    string& getName() { return Name; }
+    const size_t getMemberSize() const { return Members.size(); }
+    const MemberAST *getMember(size_t i) const { return Members[i].get(); }
     const unsigned indexOfMember(const string &MemName) const {
         unsigned idx = 0;
         for (auto E = Members.begin(); E != Members.end(); E ++, idx ++) {
@@ -445,7 +477,7 @@ public:
     StructType *codegen();
     string dumpJSON() {
         return FormatString("{`Type`: `ClassDecl`, `Name`: `%s`}", Name.c_str());
-    };
+    }
 };
 
 static unique_ptr<ExprAST> LogError(std::string Str) {
@@ -501,9 +533,10 @@ class Parser {
     unique_ptr<ExprAST> ParseForExpr(shared_ptr<Scope> scope);
     unique_ptr<ExprAST> ParseUnary(shared_ptr<Scope> scope);
     unique_ptr<ExprAST> ParseVarExpr(shared_ptr<Scope> scope);
-    unique_ptr<PrototypeAST> ParsePrototype();
+    unique_ptr<PrototypeAST> ParsePrototype(shared_ptr<Scope> scope, string &ClassName);
     unique_ptr<FunctionAST> ParseDefinition(shared_ptr<Scope> scope);
-    unique_ptr<PrototypeAST> ParseExtern();
+    unique_ptr<FunctionAST> ParseMethod(shared_ptr<Scope> scope, string &ClassName);
+    unique_ptr<PrototypeAST> ParseExtern(shared_ptr<Scope> scope);
     unique_ptr<FunctionAST> ParseTopLevelExpr(shared_ptr<Scope> scope);
     unique_ptr<MemberAST> ParseMemberAST(shared_ptr<Scope> scope);
     unique_ptr<ClassDeclAST> ParseClassDecl(shared_ptr<Scope> scope);
@@ -539,7 +572,7 @@ public:
     SourceLocation getCurLoc() { return TheLexer->CurLoc; }
     void InitializeModuleAndPassManager();
     void HandleDefinition(shared_ptr<Scope> scope);
-    void HandleExtern();
+    void HandleExtern(shared_ptr<Scope> scope);
     void HandleTopLevelExpression(shared_ptr<Scope> scope);
 
     static AllocaInst *CreateEntryBlockAlloca(Function *F, Type *T, const string &VarName);
@@ -552,7 +585,7 @@ public:
         }
     };
     void AddFunctionProtos(std::unique_ptr<PrototypeAST> Proto) {
-        FunctionProtos[Proto->getName()] = std::move(Proto);
+        FunctionProtos[Proto->getName()] = move(Proto);
     }
     Function *getFunction(std::string Name);
     Module &getModule() const { return *TheModule.get(); };

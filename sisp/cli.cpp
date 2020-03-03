@@ -26,7 +26,8 @@
 //#define TEST "compound"
 //#define TEST "link"
 //#define TEST "exec"
-#define TEST "class_member"
+//#define TEST "class_member"
+#define TEST "class_method"
 
 #ifdef TEST
 

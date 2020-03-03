@@ -68,7 +68,7 @@ Value *VariableExprAST::codegen() {
 
 //    cout << "VariableExprAST::codegen()" << V << endl;
     SispDbgInfo.emitLocation(this);
-    if (V->getType()->isPointerTy())
+    if (V->getType()->isPointerTy() && V->getType()->getPointerElementType()->isStructTy())
         return V;
     return TheParser->getBuilder()->CreateLoad(V, Name);
 }
@@ -150,10 +150,17 @@ Value *BinaryExprAST::codegen() {
 
 Value *MemberAccessAST::codegen() {
     auto V = Var->codegen();
-    string StructName = V->getType()->getPointerElementType()->getStructName();
+    string StructName;
+    if (V->getType()->isPointerTy() && V->getType()->getPointerElementType()->isStructTy()) {
+        StructName = V->getType()->getPointerElementType()->getStructName();
+    } else {
+        return LogErrorV("fail to get struct name from var");
+    }
     auto PrefixLen = string("class.").length();
     string ClassName = StructName.substr(PrefixLen, StructName.length() - PrefixLen);
     auto ClsDecl = scope->getClass(ClassName);
+    if (!ClsDecl)
+        return LogErrorV(string("Class not found: ") + ClassName);
     unsigned Idx = ClsDecl->indexOfMember(Member);
     auto MT = getType(ClsDecl->getMember(Idx)->Type, TheParser->getContext());
     auto ElePtr = TheParser->getBuilder()->CreateStructGEP(V, Idx, string(".") + Member); // i64*
@@ -162,7 +169,8 @@ Value *MemberAccessAST::codegen() {
         RVal = RHS->codegen();//i64
         if (!RVal)
             return nullptr;
-        return TheParser->getBuilder()->CreateStore(RVal, ElePtr);
+        TheParser->getBuilder()->CreateStore(RVal, ElePtr);
+        return RVal;
     }
     return TheParser->getBuilder()->CreateLoad(MT, ElePtr);
 }
@@ -348,13 +356,42 @@ Value *CallExprAST::codegen() {
     return TheParser->getBuilder()->CreateCall(CalleeF, ArgsV, "calltmp");
 }
 
+Value * MethodCallAST::codegen() {
+    auto V = Var->codegen();
+    string StructName = V->getType()->getPointerElementType()->getStructName();
+    auto PrefixLen = string("class.").length();
+    string ClassName = StructName.substr(PrefixLen, StructName.length() - PrefixLen);
+    string Fn = ClassName + "$" + Callee;
+    // Look up the name in the global module table.
+    Function *CalleeF = TheParser->getFunction(Fn);
+    if (!CalleeF) {
+        return LogErrorV(string("method not found: ") + Callee);
+    }
+
+    // If argument mismatch error.
+    if (CalleeF->arg_size() != Args.size() + 1)
+        return LogErrorV("Incorrect arguments passed");
+
+    std::vector<Value *> ArgsV;
+    ArgsV.push_back(V);
+    for (unsigned long i = 0, e = Args.size(); i != e; ++i) {
+        ArgsV.push_back(Args[i]->codegen());
+        if (!ArgsV.back())
+            return nullptr;
+    }
+
+    return TheParser->getBuilder()->CreateCall(CalleeF, ArgsV, "calltmp");
+}
+
 Function *PrototypeAST::codegen() {
-    vector<llvm::Type *> ArgTypes;
+    vector<Type *> ArgTypes;
     for (auto E = Args.begin(); E != Args.end(); E ++) {
-        llvm::Type *ArgType = (*E)->getIRType(TheParser->getContext());
+        Type *ArgType = (*E)->getIRType(TheParser->getContext());
+//        if (ArgType->isStructTy())
+//            ArgType = ArgType->getPointerTo();
         ArgTypes.push_back(ArgType);
     }
-    llvm::Type *TheRetType = getType(RetType, TheParser->getContext());
+    Type *TheRetType = getType(RetType, TheParser->getContext());
     FunctionType *FT = FunctionType::get(TheRetType, ArgTypes, false);
     Function *F = Function::Create(FT, Function::ExternalLinkage, Name, TheParser->getModule());
     unsigned long Idx = 0;
@@ -367,6 +404,7 @@ Function *FunctionAST::codegen() {
     // Transfer ownership of the prototype to the FunctionProtos map, but keep a
     // reference to it for use below.
     auto &P = *Proto;
+    cout << "codegen: " << P.getName() << endl;
     TheParser->AddFunctionProtos(move(Proto));
     Function *F = TheParser->getFunction(P.getName());
     if (!F)
@@ -407,7 +445,10 @@ Function *FunctionAST::codegen() {
 
     unsigned ArgIdx = 0;
     for (auto &Arg : F->args()) {
-        auto Alloca = Parser::CreateEntryBlockAlloca(F, Arg.getType(), Arg.getName());
+        auto ArgTy = Arg.getType();
+//        if (ArgTy->isStructTy())
+//            ArgTy = ArgTy->getPointerTo();
+        auto Alloca = Parser::CreateEntryBlockAlloca(F, ArgTy, Arg.getName());
 
         // Create a debug descriptor for the variable.
         DILocalVariable *D = DBuilder->createParameterVariable(
@@ -459,5 +500,9 @@ StructType * ClassDeclAST::codegen() {
     }
     auto ST = StructType::create(TheParser->getContext(), Tys, string("class") + "." + Name, false);
     scope->setClassType(Name, ST);
+
+    for (auto E = Methods.begin(); E != Methods.end(); E ++)
+        (*E)->codegen();
+
     return ST;
 }

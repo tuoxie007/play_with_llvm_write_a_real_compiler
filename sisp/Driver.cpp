@@ -56,7 +56,7 @@ static int MainLoop() {
                 TheParser->HandleDefinition(scope);
                 break;
             case tok_extern:
-                TheParser->HandleExtern();
+                TheParser->HandleExtern(scope);
                 break;
             default:
                 TheParser->HandleTopLevelExpression(scope);

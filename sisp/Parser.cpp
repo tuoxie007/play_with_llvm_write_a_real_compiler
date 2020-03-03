@@ -96,7 +96,7 @@ std::unique_ptr<ExprAST> Parser::ParseIdentifierExpr(shared_ptr<Scope> scope) {
             if (TheLexer->CurTok != tok_comma)
                 return LogError("Expected ')' or ',' in argument list");
 
-                getNextToken();
+            getNextToken();
         }
     }
 
@@ -115,7 +115,7 @@ unique_ptr<ExprAST> Parser::ParsePrimary(shared_ptr<Scope> scope) {
         case tok_identifier:
             // TODO find the user-defined type
             if (scope->getClass(TheLexer->IdentifierStr)) {
-                if (TheLexer->getNextToken(1) == tok_left_paren) {
+                if (TheLexer->getNextToken(1) == tok_left_paren) { // constructor
                     return ParseIdentifierExpr(scope);
                 }
                 return ParseVarExpr(scope);
@@ -182,7 +182,10 @@ unique_ptr<ExprAST> Parser::ParseExpr(shared_ptr<Scope> scope) {
     if (!LHS)
         return nullptr;
 
-    return ParseBinOpRHS(scope, 0, move(LHS));
+    auto Bin =  ParseBinOpRHS(scope, 0, move(LHS));
+    if (TheLexer->CurTok == tok_colon)
+        getNextToken();
+    return Bin;
 }
 
 unique_ptr<ExprAST> Parser::ParseBinOpRHS(shared_ptr<Scope> scope,
@@ -216,6 +219,32 @@ unique_ptr<ExprAST> Parser::ParseBinOpRHS(shared_ptr<Scope> scope,
                     LogError("expected expression after member assignment");
 
                 return make_unique<MemberAccessAST>(scope, move(LHS), MemName, move(RHS));
+            }
+
+            if (TheLexer->CurTok == tok_left_paren) { // method call
+                getNextToken();
+                vector<unique_ptr<ExprAST>> Args;
+//                Args.push_back(move(LHS));
+                if (TheLexer->CurTok != tok_right_paren) {
+                    while (true) {
+                        if (auto Arg = ParseExpr(scope))
+                            Args.push_back(move(Arg));
+                        else
+                            return nullptr;
+
+                        if (TheLexer->CurTok == tok_right_paren)
+                            break;
+
+                        if (TheLexer->CurTok != tok_comma)
+                            return LogError("Expected ')' or ',' in argument list");
+
+                        getNextToken();
+                    }
+
+                    getNextToken();
+
+                    return make_unique<MethodCallAST>(scope, move(LHS), MemName, move(Args));
+                }
             }
 
             if (TheLexer->CurTok == tok_colon)
@@ -375,7 +404,7 @@ unique_ptr<ExprAST> Parser::ParseVarExpr(shared_ptr<Scope> scope) {
     return make_unique<VarExprAST>(scope, Type, Name, move(Init));
 }
 
-unique_ptr<PrototypeAST> Parser::ParsePrototype() {
+unique_ptr<PrototypeAST> Parser::ParsePrototype(shared_ptr<Scope> scope, string &ClassName) {
 
     SourceLocation FnLoc = TheLexer->CurLoc;
     Token Type = TheLexer->CurTok;
@@ -388,6 +417,9 @@ unique_ptr<PrototypeAST> Parser::ParsePrototype() {
     switch (TheLexer->CurTok) {
         case tok_identifier:
             FnName = TheLexer->IdentifierStr;
+            if (ClassName.length()) {
+                FnName = ClassName + "$" + FnName;
+            }
             Kind = 0;
             getNextToken();
             break;
@@ -423,9 +455,18 @@ unique_ptr<PrototypeAST> Parser::ParsePrototype() {
         return LogErrorP("Expected '(' in prototype");
     }
 
+    if (!scope) {
+        scope = make_shared<Scope>();
+    }
+
     vector<unique_ptr<VarExprAST>> Args;
+    if (ClassName.length()) {
+        VarType Type = VarType(VarTypeObject, ClassName);
+        auto ThisArg = make_unique<VarExprAST>(scope, Type, "this", unique_ptr<ExprAST>());
+        Args.push_back(move(ThisArg));
+    }
     getNextToken();
-    auto scope = make_shared<Scope>();
+
     while (TheLexer->getVarType()) {
         auto ArgE = ParseVarExpr(scope);
         auto Arg = unique_ptr<VarExprAST>(static_cast<VarExprAST *>(ArgE.release()));
@@ -449,7 +490,8 @@ unique_ptr<PrototypeAST> Parser::ParsePrototype() {
 }
 
 unique_ptr<FunctionAST> Parser::ParseDefinition(shared_ptr<Scope> scope) {
-    auto Proto = ParsePrototype();
+    string Empty;
+    auto Proto = ParsePrototype(scope, Empty);
     if (!Proto) {
         return nullptr;
     }
@@ -460,9 +502,22 @@ unique_ptr<FunctionAST> Parser::ParseDefinition(shared_ptr<Scope> scope) {
     return nullptr;
 }
 
-unique_ptr<PrototypeAST> Parser::ParseExtern() {
+unique_ptr<FunctionAST> Parser::ParseMethod(shared_ptr<Scope> scope, string &ClassName) {
+    auto Proto = ParsePrototype(scope, ClassName);
+    if (!Proto) {
+        return nullptr;
+    }
+
+    if (auto E = ParseExpr(scope))
+        return make_unique<FunctionAST>(move(Proto), move(E));
+
+    return nullptr;
+}
+
+unique_ptr<PrototypeAST> Parser::ParseExtern(shared_ptr<Scope> scope) {
     getNextToken();
-    return ParsePrototype();
+    string Empty;
+    return ParsePrototype(scope, Empty);
 }
 
 unique_ptr<FunctionAST> Parser::ParseTopLevelExpr(shared_ptr<Scope> scope) {
@@ -514,13 +569,25 @@ unique_ptr<ClassDeclAST> Parser::ParseClassDecl(shared_ptr<Scope> scope) {
 
     getNextToken();
     vector<unique_ptr<MemberAST>> Members;
+    vector<unique_ptr<FunctionAST>> Methods;
     while (TheLexer->CurTok != tok_right_bracket) {
-        auto Member = ParseMemberAST(scope);
-        Members.push_back(move(Member));
+        if (TheLexer->getNextToken(2) == tok_left_paren) {
+            if (auto Method = ParseMethod(scope, Name)) {
+                cout << Method->dumpJSON() << endl;
+                Methods.push_back(move(Method));
+//                if (auto *FnIR = Method->codegen()) {
+//                }
+            } else {
+                LogError("Parse Method failed");
+            }
+        } else {
+            auto Member = ParseMemberAST(scope);
+            Members.push_back(move(Member));
+        }
     }
 
     getNextToken();
-    return make_unique<ClassDeclAST>(scope, ClsLoc, Name, move(Members));
+    return make_unique<ClassDeclAST>(scope, ClsLoc, Name, move(Members), move(Methods));
 }
 
 void Parser::InitializeModuleAndPassManager() {
@@ -549,8 +616,9 @@ void Parser::HandleDefinition(shared_ptr<Scope> scope) {
     if (TheLexer->CurTok == tok_class) {
         if (auto ClsDecl = ParseClassDecl(scope)) {
             cout << ClsDecl->dumpJSON() << endl;
-            ClsDecl->codegen();
+            auto C = ClsDecl.get();
             scope->appendClass(ClsDecl->getName(), move(ClsDecl));
+            C->codegen();
         } else {
             LogError("Parse ClassDecl failed");
         }
@@ -574,14 +642,14 @@ void Parser::HandleDefinition(shared_ptr<Scope> scope) {
     }
 }
 
-void Parser::HandleExtern() {
-    if (auto ProtoAST = ParseExtern()) {
+void Parser::HandleExtern(shared_ptr<Scope> scope) {
+    if (auto ProtoAST = ParseExtern(scope)) {
         cout << ProtoAST->dumpJSON() << endl;
         if (auto *FnIR = ProtoAST->codegen()) {
 //            cout << "Read extern: ";
 //            FnIR->print(outs());
 //            cout << endl;
-            FunctionProtos[ProtoAST->getName()] = std::move(ProtoAST);
+            FunctionProtos[ProtoAST->getName()] = move(ProtoAST);
         }
     } else {
         // Skip token for error recovery.
@@ -623,6 +691,8 @@ void Parser::HandleTopLevelExpression(shared_ptr<Scope> scope) {
 
 AllocaInst * Parser::CreateEntryBlockAlloca(Function *F, Type *T, const string &VarName) {
     IRBuilder<> TmpBlock(&F->getEntryBlock(), F->getEntryBlock().begin());
+    if (VarName == "this")
+        cout << VarName << endl;
     return TmpBlock.CreateAlloca(T, 0, VarName);
 }
 
