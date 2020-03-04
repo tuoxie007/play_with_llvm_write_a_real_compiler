@@ -337,9 +337,21 @@ Value *CallExprAST::codegen() {
         auto ClassType = scope->getClassType(Callee);
         if (!ClassType)
             return LogErrorV((string("Unknown function referenced ") + Callee));
-        auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
-        auto Alloca = Parser::CreateEntryBlockAlloca(F, ClassType, "obj");
-        return TheParser->getBuilder()->CreateBitCast(Alloca, ClassType->getPointerTo());
+
+        // %ptr = malloc()
+        auto Bytes = scope->getClass(Callee)->getMemoryBytes();
+        auto MallocF = TheParser->getModule().getFunction("malloc");
+        Value *SizeArg[] = {ConstantInt::get(Type::getInt64Ty(TheParser->getContext()), Bytes)};
+        auto Ptr = TheParser->getBuilder()->CreateCall(MallocF, SizeArg, "ptr");
+
+        // %obj = bitcase %ptr
+        auto ObjPtr = TheParser->getBuilder()->CreateBitCast(Ptr, ClassType->getPointerTo(), "obj");
+
+        return ObjPtr;
+
+//        auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
+//        auto Alloca = Parser::CreateEntryBlockAlloca(F, ClassType, "obj");
+//        return TheParser->getBuilder()->CreateBitCast(Alloca, ClassType->getPointerTo());
     }
 
     // If argument mismatch error.
@@ -387,8 +399,8 @@ Function *PrototypeAST::codegen() {
     vector<Type *> ArgTypes;
     for (auto E = Args.begin(); E != Args.end(); E ++) {
         Type *ArgType = (*E)->getIRType(TheParser->getContext());
-//        if (ArgType->isStructTy())
-//            ArgType = ArgType->getPointerTo();
+        if (ArgType->isStructTy())
+            ArgType = ArgType->getPointerTo();
         ArgTypes.push_back(ArgType);
     }
     Type *TheRetType = getType(RetType, TheParser->getContext());
@@ -446,8 +458,8 @@ Function *FunctionAST::codegen() {
     unsigned ArgIdx = 0;
     for (auto &Arg : F->args()) {
         auto ArgTy = Arg.getType();
-//        if (ArgTy->isStructTy())
-//            ArgTy = ArgTy->getPointerTo();
+        if (ArgTy->isStructTy())
+            ArgTy = ArgTy->getPointerTo();
         auto Alloca = Parser::CreateEntryBlockAlloca(F, ArgTy, Arg.getName());
 
         // Create a debug descriptor for the variable.

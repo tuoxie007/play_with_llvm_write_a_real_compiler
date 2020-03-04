@@ -1,3 +1,4 @@
+extern int malloc(int s);
 
 class Boy {
   int tall;
@@ -14,4 +15,5 @@ int boyTall()
 {
   Boy b = Boy();
   b.setTall(180);
+  b.tall;
 }

@@ -1,3 +1,4 @@
+extern int malloc(int s);
 
 class Boy {
   int age;

@@ -128,7 +128,7 @@ public:
     void appendClass(string name, unique_ptr<ClassDeclAST> C) {
         Classes[name] = move(C);
     }
-    const ClassDeclAST *getClass(const string &name) {
+    ClassDeclAST *getClass(const string &name) {
         if (Classes[name]) return Classes[name].get();
         if (Parent) return Parent->getClass(name);
         return nullptr;
@@ -473,6 +473,21 @@ public:
             if ((*E)->Name == MemName) break;
         }
         return idx;
+    }
+    unsigned getMemoryBytes() {
+        unsigned bytes = 0;
+        for (auto E = Members.begin(); E != Members.end(); E ++) {
+            if ((*E)->Type == tok_type_int) {
+                bytes += 8;
+            } else if ((*E)->Type == tok_type_float) {
+                bytes += 8;
+            } else if ((*E)->Type == tok_type_float) {
+               bytes += 1;
+            } else {
+                assert(false && "unkown type");
+            }
+        }
+        return bytes;
     }
     StructType *codegen();
     string dumpJSON() {
