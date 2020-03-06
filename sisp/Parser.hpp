@@ -126,7 +126,7 @@ public:
         return VarVals[name] ?: (Parent ? Parent->getVal(name) : nullptr);
     }
     void appendClass(string name, unique_ptr<ClassDeclAST> C) {
-        Classes[name] = move(C);
+        Classes[name] = std::move(C);
     }
     ClassDeclAST *getClass(const string &name) {
         if (Classes[name]) return Classes[name].get();
@@ -188,7 +188,7 @@ class VarExprAST : public ExprAST {
 
 public:
     VarExprAST(shared_ptr<Scope> scope, VarType type, string name, unique_ptr<ExprAST> init)
-        : ExprAST(scope), Type(type), Name(name), Init(move(init)) {
+        : ExprAST(scope), Type(type), Name(name), Init(std::move(init)) {
             scope->setValType(name, type);
         }
 
@@ -216,7 +216,7 @@ class CompoundExprAST : public ExprAST {
     vector<unique_ptr<ExprAST>> Exprs;
 
 public:
-    CompoundExprAST(shared_ptr<Scope> scope, vector<unique_ptr<ExprAST>> exprs): ExprAST(scope), Exprs(move(exprs)) {}
+    CompoundExprAST(shared_ptr<Scope> scope, vector<unique_ptr<ExprAST>> exprs): ExprAST(scope), Exprs(std::move(exprs)) {}
     Value *codegen() override;
     string dumpJSON() {
         return FormatString("{`type`: `Compound`, `Exprs`: %s]}", ExprAST::listDumpJSON(Exprs).c_str());
@@ -267,7 +267,7 @@ public:
                   char op,
                   unique_ptr<ExprAST> lhs,
                   unique_ptr<ExprAST> rhs)
-        : ExprAST(scope, loc), Op(op), LHS(move(lhs)), RHS(move(rhs)) {}
+        : ExprAST(scope, loc), Op(op), LHS(std::move(lhs)), RHS(std::move(rhs)) {}
     Value *codegen() override;
     string dumpJSON() {
         string lhs = LHS->dumpJSON();
@@ -285,7 +285,7 @@ public:
                 SourceLocation loc,
                 const string &callee,
                 vector<unique_ptr<ExprAST>> args)
-        : ExprAST(scope, loc), Callee(callee), Args(move(args)) {}
+        : ExprAST(scope, loc), Callee(callee), Args(std::move(args)) {}
     Value *codegen() override;
     string dumpJSON() {
         return FormatString("{`type`: `Call`, `Callee`: `%s`, `Args`: %s}", Callee.c_str(), ExprAST::listDumpJSON(Args).c_str());
@@ -306,7 +306,7 @@ public:
                   unique_ptr<ExprAST> var,
                   const string &callee,
                   vector<unique_ptr<ExprAST>> args)
-        : ExprAST(scope), Var(move(var)), Callee(callee), Args(move(args)) {}
+        : ExprAST(scope), Var(std::move(var)), Callee(callee), Args(std::move(args)) {}
     Value *codegen() override;
     string dumpJSON() {
         return FormatString("{`type`: `MethodCall`, `Var`: %s, `Callee`: `%s`, `Args`: %s}", Var->dumpJSON().c_str(), Callee.c_str(), ExprAST::listDumpJSON(Args).c_str());
@@ -323,9 +323,9 @@ class MemberAccessAST : public ExprAST {
 
 public:
     MemberAccessAST(shared_ptr<Scope> scope, unique_ptr<ExprAST> var, string member)
-        : ExprAST(scope), Var(move(var)), Member(member) {}
+        : ExprAST(scope), Var(std::move(var)), Member(member) {}
     MemberAccessAST(shared_ptr<Scope> scope, unique_ptr<ExprAST> var, string member, unique_ptr<ExprAST> RHS)
-        : ExprAST(scope), Var(move(var)), Member(member), RHS(move(RHS)) {}
+        : ExprAST(scope), Var(std::move(var)), Member(member), RHS(std::move(RHS)) {}
 
     Value *codegen() override;
     string dumpJSON() {
@@ -352,7 +352,7 @@ public:
         Loc(loc),
         RetType(type),
         Name(name),
-        Args(move(args)),
+        Args(std::move(args)),
         IsOperator(isOperator),
         Precedence(precedence) {}
 
@@ -392,7 +392,7 @@ public:
               unique_ptr<ExprAST> cond,
               unique_ptr<ExprAST> then,
               unique_ptr<ExprAST> elseE)
-        : ExprAST(scope, loc), Cond(move(cond)), Then(move(then)), Else(move(elseE)) {}
+        : ExprAST(scope, loc), Cond(std::move(cond)), Then(std::move(then)), Else(std::move(elseE)) {}
 
     Value * codegen() override;
     string dumpJSON() {
@@ -411,10 +411,10 @@ public:
                unique_ptr<ExprAST> step,
                unique_ptr<ExprAST> body):
         ExprAST(scope),
-        Var(move(var)),
-        End(move(end)),
-        Step(move(step)),
-        Body(move(body)) {}
+        Var(std::move(var)),
+        End(std::move(end)),
+        Step(std::move(step)),
+        Body(std::move(body)) {}
 
     Value * codegen() override;
     string dumpJSON() {
@@ -428,7 +428,7 @@ class UnaryExprAST : public ExprAST {
 
 public:
     UnaryExprAST(shared_ptr<Scope> scope, char opcode, unique_ptr<ExprAST> operand)
-        : ExprAST(scope), Opcode(opcode), Operand(move(operand)) {}
+        : ExprAST(scope), Opcode(opcode), Operand(std::move(operand)) {}
 
     Value * codegen() override;
     string dumpJSON() {
@@ -462,7 +462,7 @@ public:
                vector<unique_ptr<MemberAST>> members,
                vector<unique_ptr<FunctionAST>> methods)
       : Loc(loc), scope(scope), Name(name),
-        Members(move(members)), Methods(move(methods)) {}
+        Members(std::move(members)), Methods(std::move(methods)) {}
 
     string& getName() { return Name; }
     const size_t getMemberSize() const { return Members.size(); }
@@ -600,7 +600,7 @@ public:
         }
     };
     void AddFunctionProtos(std::unique_ptr<PrototypeAST> Proto) {
-        FunctionProtos[Proto->getName()] = move(Proto);
+        FunctionProtos[Proto->getName()] = std::move(Proto);
     }
     Function *getFunction(std::string Name);
     Module &getModule() const { return *TheModule.get(); };

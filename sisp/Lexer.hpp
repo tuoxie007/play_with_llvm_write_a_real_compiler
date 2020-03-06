@@ -57,6 +57,8 @@ typedef enum Token {
     tok_not = '!',
     tok_or = '|',
     tok_and = '&',
+    tok_left_square = '[',
+    tok_right_square = ']',
 
 } Token;
 

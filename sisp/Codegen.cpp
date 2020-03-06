@@ -417,7 +417,7 @@ Function *FunctionAST::codegen() {
     // reference to it for use below.
     auto &P = *Proto;
     cout << "codegen: " << P.getName() << endl;
-    TheParser->AddFunctionProtos(move(Proto));
+    TheParser->AddFunctionProtos(std::move(Proto));
     Function *F = TheParser->getFunction(P.getName());
     if (!F)
         return nullptr;
