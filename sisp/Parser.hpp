@@ -767,4 +767,7 @@ public:
 
 extern unique_ptr<Parser> TheParser;
 
+inline LLVMContext &getContext() { return TheParser->getContext(); }
+inline IRBuilder<> *getBuilder() { return TheParser->getBuilder(); }
+
 #endif /* Parser_hpp */

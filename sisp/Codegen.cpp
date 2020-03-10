@@ -23,7 +23,7 @@ DIType *DebugInfo::getDoubleTy() {
 
 void DebugInfo::emitLocation(ExprAST *AST) {
     if (!AST)
-        return TheParser->getBuilder()->SetCurrentDebugLocation(DebugLoc());
+        return getBuilder()->SetCurrentDebugLocation(DebugLoc());
 
     DIScope *Scope;
     if (LexicalBlocks.empty())
@@ -31,7 +31,7 @@ void DebugInfo::emitLocation(ExprAST *AST) {
     else
         Scope = LexicalBlocks.back();
 
-    TheParser->getBuilder()->SetCurrentDebugLocation(DebugLoc::get(AST->getLine(), AST->getCol(), Scope));
+    getBuilder()->SetCurrentDebugLocation(DebugLoc::get(AST->getLine(), AST->getCol(), Scope));
 }
 
 static DISubroutineType *CreateFunctionType(unsigned long NumArgs, DIFile *Unit) {
@@ -53,12 +53,12 @@ const std::string& FunctionAST::getName() const {
 
 Value *IntegerLiteralAST::codegen() {
     SispDbgInfo.emitLocation(this);
-    return ConstantInt::get(TheParser->getContext(), APInt(64, Val));
+    return ConstantInt::get(getContext(), APInt(64, Val));
 }
 
 Value *FloatLiteralAST::codegen() {
     SispDbgInfo.emitLocation(this);
-    return ConstantFP::get(TheParser->getContext(), APFloat(Val));
+    return ConstantFP::get(getContext(), APFloat(Val));
 }
 
 Value *VariableExprAST::codegen() {
@@ -78,7 +78,7 @@ Value *RightValueAST::codegen() {
     if (V->getType()->isPointerTy() && V->getType()->getPointerElementType()->isStructTy())
         return V;
     else if (V->getType()->isPointerTy())
-        return TheParser->getBuilder()->CreateLoad(V, "rv");
+        return getBuilder()->CreateLoad(V, "rv");
     return V;
 }
 
@@ -98,7 +98,7 @@ Value *BinaryExprAST::codegen() {
         if (!Variable)
             return LogErrorV("Unkown variable name");
 
-        TheParser->getBuilder()->CreateStore(Val, Variable);
+        getBuilder()->CreateStore(Val, Variable);
         return Val;
     }
 
@@ -112,38 +112,38 @@ Value *BinaryExprAST::codegen() {
     switch (Op) {
         case tok_add:
             if (L->getType()->isFloatTy() || L->getType()->isFloatTy())
-                return TheParser->getBuilder()->CreateFAdd(L, R, "addtmp");
+                return getBuilder()->CreateFAdd(L, R, "addtmp");
             else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
-                return TheParser->getBuilder()->CreateAdd(L, R, "addtmp");
+                return getBuilder()->CreateAdd(L, R, "addtmp");
         case tok_sub:
             if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy())
-                return TheParser->getBuilder()->CreateFSub(L, R, "subtmp");
+                return getBuilder()->CreateFSub(L, R, "subtmp");
             else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
-                return TheParser->getBuilder()->CreateSub(L, R, "subtmp");
+                return getBuilder()->CreateSub(L, R, "subtmp");
         case tok_mul:
             if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy())
-                return TheParser->getBuilder()->CreateFMul(L, R, "multmp");
+                return getBuilder()->CreateFMul(L, R, "multmp");
             else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
-                return TheParser->getBuilder()->CreateMul(L, R, "multmp");
+                return getBuilder()->CreateMul(L, R, "multmp");
         case tok_less:
             if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy()) {
-                L = TheParser->getBuilder()->CreateFCmpULT(L, R, "lttmp");
-                return TheParser->getBuilder()->CreateUIToFP(L, Type::getDoubleTy(TheParser->getContext()),
+                L = getBuilder()->CreateFCmpULT(L, R, "lttmp");
+                return getBuilder()->CreateUIToFP(L, Type::getDoubleTy(getContext()),
                 "booltmp");
             }
             else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy()) {
-                return TheParser->getBuilder()->CreateICmpSLT(L, R, "lttmp");
+                return getBuilder()->CreateICmpSLT(L, R, "lttmp");
             }
             else
                 assert(false && "not implemented");
         case tok_greater:
             if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy()) {
-                R = TheParser->getBuilder()->CreateFCmpUGT(L, R, "gttmp");
-                return TheParser->getBuilder()->CreateUIToFP(R, Type::getDoubleTy(TheParser->getContext()),
+                R = getBuilder()->CreateFCmpUGT(L, R, "gttmp");
+                return getBuilder()->CreateUIToFP(R, Type::getDoubleTy(getContext()),
                 "booltmp");
             }
             else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy()) {
-                return TheParser->getBuilder()->CreateICmpSGT(L, R, "gttmp");
+                return getBuilder()->CreateICmpSGT(L, R, "gttmp");
             }
             else
                 assert(false && "not implemented");
@@ -152,7 +152,7 @@ Value *BinaryExprAST::codegen() {
             auto F = TheParser->getFunction(string("binary") + Op);
             assert(F && "binary operator not found!");
             auto Ops = { L, R };
-            return TheParser->getBuilder()->CreateCall(F, Ops, "calltmp");
+            return getBuilder()->CreateCall(F, Ops, "calltmp");
         }
     }
 }
@@ -172,17 +172,17 @@ Value *MemberAccessAST::codegen() {
         return LogErrorV(string("Class not found: ") + ClassName);
     unsigned Idx = ClsDecl->indexOfMember(Member);
     VarType VT = ClsDecl->getMember(Idx)->VType;
-    auto MT = VT.getType(TheParser->getContext());
-    auto ElePtr = TheParser->getBuilder()->CreateStructGEP(V, Idx, string(".") + Member); // i64*
+    auto MT = VT.getType(getContext());
+    auto ElePtr = getBuilder()->CreateStructGEP(V, Idx, string(".") + Member); // i64*
     if (RHS) {
         Value *RVal;
         RVal = RHS->codegen(); //i64
         if (!RVal)
             return nullptr;
-        TheParser->getBuilder()->CreateStore(RHS->codegen(), ElePtr);
+        getBuilder()->CreateStore(RHS->codegen(), ElePtr);
         return RVal;
     }
-    return TheParser->getBuilder()->CreateLoad(MT, ElePtr);
+    return getBuilder()->CreateLoad(MT, ElePtr);
 }
 
 Value *IndexerAST::codegen() {
@@ -190,7 +190,7 @@ Value *IndexerAST::codegen() {
     if (V->getType()->isPointerTy()) {
 
         auto Idx = Index->codegen();
-        auto ElePtr = TheParser->getBuilder()->CreateGEP(V, Idx);
+        auto ElePtr = getBuilder()->CreateGEP(V, Idx);
 
         auto EleTy = V->getType()->getPointerElementType();
         if (RHS) {
@@ -198,10 +198,10 @@ Value *IndexerAST::codegen() {
             RVal = RHS->codegen();
             if (!RVal)
                 return nullptr;
-            TheParser->getBuilder()->CreateStore(RVal, ElePtr);
+            getBuilder()->CreateStore(RVal, ElePtr);
             return RVal;
         }
-        return TheParser->getBuilder()->CreateLoad(EleTy, ElePtr, "idxVal");
+        return getBuilder()->CreateLoad(EleTy, ElePtr, "idxVal");
     } else {
         return LogErrorV("fail to get index of non pointer type");
     }
@@ -209,11 +209,11 @@ Value *IndexerAST::codegen() {
 
 Value *NewAST::codegen() {
     unsigned Sizeof = Type.getMemoryBytes();
-    auto Cap = TheParser->getBuilder()->CreateMul(Size->codegen(), ConstantInt::get(TheParser->getContext(), APInt(64, Sizeof)));
+    auto Cap = getBuilder()->CreateMul(Size->codegen(), ConstantInt::get(getContext(), APInt(64, Sizeof)));
     auto MallocF = TheParser->getModule().getFunction("malloc");
     Value *SizeArg[] = { Cap };
-    auto Ptr = TheParser->getBuilder()->CreateCall(MallocF, SizeArg, "ptr");
-    auto ObjPtr = TheParser->getBuilder()->CreateBitCast(Ptr, Type.getType(TheParser->getContext())->getPointerTo(), "new");
+    auto Ptr = getBuilder()->CreateCall(MallocF, SizeArg, "ptr");
+    auto ObjPtr = getBuilder()->CreateBitCast(Ptr, Type.getType(getContext())->getPointerTo(), "new");
     return ObjPtr;
 }
 
@@ -222,41 +222,41 @@ Value *IfExprAST::codegen() {
     auto CondV = Cond->codegen();
     if (!CondV)
         return nullptr;
-    CondV = TheParser->getBuilder()->CreateICmpNE(CondV, ConstantInt::get(TheParser->getContext(), APInt(1, 0)), "ifcond");
+    CondV = getBuilder()->CreateICmpNE(CondV, ConstantInt::get(getContext(), APInt(1, 0)), "ifcond");
 
-    auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
+    auto F = getBuilder()->GetInsertBlock()->getParent();
 
-    auto ThenBlock = BasicBlock::Create(TheParser->getContext(), "then", F);
-    auto ElseBlock = BasicBlock::Create(TheParser->getContext(), "else");
-    auto MergeBlock = BasicBlock::Create(TheParser->getContext(), "ifcont");
+    auto ThenBlock = BasicBlock::Create(getContext(), "then", F);
+    auto ElseBlock = BasicBlock::Create(getContext(), "else");
+    auto MergeBlock = BasicBlock::Create(getContext(), "ifcont");
 
-    TheParser->getBuilder()->CreateCondBr(CondV, ThenBlock, ElseBlock);
+    getBuilder()->CreateCondBr(CondV, ThenBlock, ElseBlock);
 
-    TheParser->getBuilder()->SetInsertPoint(ThenBlock);
+    getBuilder()->SetInsertPoint(ThenBlock);
 
     auto ThenV = Then->codegen();
     if (!ThenV)
         return nullptr;
 
-    TheParser->getBuilder()->CreateBr(MergeBlock);
+    getBuilder()->CreateBr(MergeBlock);
 
-    ThenBlock = TheParser->getBuilder()->GetInsertBlock();
+    ThenBlock = getBuilder()->GetInsertBlock();
 
     F->getBasicBlockList().push_back(ElseBlock);
-    TheParser->getBuilder()->SetInsertPoint(ElseBlock);
+    getBuilder()->SetInsertPoint(ElseBlock);
 
     auto ElseV = Else->codegen();
     if (!ElseV)
         return nullptr;
 
-    TheParser->getBuilder()->CreateBr(MergeBlock);
+    getBuilder()->CreateBr(MergeBlock);
 
-    ElseBlock = TheParser->getBuilder()->GetInsertBlock();
+    ElseBlock = getBuilder()->GetInsertBlock();
 
     F->getBasicBlockList().push_back(MergeBlock);
-    TheParser->getBuilder()->SetInsertPoint(MergeBlock);
+    getBuilder()->SetInsertPoint(MergeBlock);
 
-    auto PN = TheParser->getBuilder()->CreatePHI(ThenV->getType(), 2, "iftmp");
+    auto PN = getBuilder()->CreatePHI(ThenV->getType(), 2, "iftmp");
 
     PN->addIncoming(ThenV, ThenBlock);
     PN->addIncoming(ElseV, ElseBlock);
@@ -265,7 +265,7 @@ Value *IfExprAST::codegen() {
 }
 
 Value *ForExprAST::codegen() {
-    auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
+    auto F = getBuilder()->GetInsertBlock()->getParent();
 
     SispDbgInfo.emitLocation(this);
 
@@ -275,24 +275,24 @@ Value *ForExprAST::codegen() {
 
     auto Alloca = getScope()->getVal(Var->getName());
 
-    auto TestBlock = BasicBlock::Create(TheParser->getContext(), "test", F);
-    auto LoopBlock = BasicBlock::Create(TheParser->getContext(), "loop", F);
-    auto AfterBlock = BasicBlock::Create(TheParser->getContext(), "afterloop", F);
+    auto TestBlock = BasicBlock::Create(getContext(), "test", F);
+    auto LoopBlock = BasicBlock::Create(getContext(), "loop", F);
+    auto AfterBlock = BasicBlock::Create(getContext(), "afterloop", F);
 
-    TheParser->getBuilder()->CreateBr(TestBlock);
+    getBuilder()->CreateBr(TestBlock);
 
     // %test:
-    TheParser->getBuilder()->SetInsertPoint(TestBlock);
+    getBuilder()->SetInsertPoint(TestBlock);
 
     auto LoopCond = End->codegen();
     if (!LoopCond)
         return nullptr;
 
     // if %loopcond is true; then go to %loop; else goto %afterloop
-    TheParser->getBuilder()->CreateCondBr(LoopCond, LoopBlock, AfterBlock);
+    getBuilder()->CreateCondBr(LoopCond, LoopBlock, AfterBlock);
 
     // %loop:
-    TheParser->getBuilder()->SetInsertPoint(LoopBlock);
+    getBuilder()->SetInsertPoint(LoopBlock);
     if (!Body->codegen())
         return nullptr;
 
@@ -302,24 +302,24 @@ Value *ForExprAST::codegen() {
         if (!StepVal)
             return nullptr;
     } else {
-        StepVal = ConstantInt::get(TheParser->getContext(), APInt(64, 1));
+        StepVal = ConstantInt::get(getContext(), APInt(64, 1));
     }
     // i = i + %StepVal
-    auto CurVar = TheParser->getBuilder()->CreateLoad(Alloca, Var->getName());
-    auto NextVar = TheParser->getBuilder()->CreateAdd(CurVar, StepVal, "nextvar");
-    TheParser->getBuilder()->CreateStore(NextVar, Alloca);
+    auto CurVar = getBuilder()->CreateLoad(Alloca, Var->getName());
+    auto NextVar = getBuilder()->CreateAdd(CurVar, StepVal, "nextvar");
+    getBuilder()->CreateStore(NextVar, Alloca);
     // goto %test
-    TheParser->getBuilder()->CreateBr(TestBlock);
+    getBuilder()->CreateBr(TestBlock);
 
     // %afterloop:
-    TheParser->getBuilder()->SetInsertPoint(AfterBlock);
+    getBuilder()->SetInsertPoint(AfterBlock);
 
-    return Constant::getNullValue(Type::getInt64Ty(TheParser->getContext()));
+    return Constant::getNullValue(Type::getInt64Ty(getContext()));
 }
 
 Value *VarExprAST::codegen() {
 
-    auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
+    auto F = getBuilder()->GetInsertBlock()->getParent();
 
     Value *InitVal;
     if (Init) {
@@ -328,15 +328,15 @@ Value *VarExprAST::codegen() {
         return InitVal;
 //        if (InitVal->getType()->isPointerTy()) {
 //        }
-//        auto Load = TheParser->getBuilder()->CreateLoad(InitVal->getType()->getPointerTo(), InitVal, "var");
+//        auto Load = getBuilder()->CreateLoad(InitVal->getType()->getPointerTo(), InitVal, "var");
 //        scope->setVal(Name, Load);
 //        return Load;
     } else {
-        InitVal = Type.getDefaultValue(TheParser->getContext());
+        InitVal = Type.getDefaultValue(getContext());
     }
 
     AllocaInst *Alloca = Parser::CreateEntryBlockAlloca(F, this);
-    TheParser->getBuilder()->CreateStore(InitVal, Alloca);
+    getBuilder()->CreateStore(InitVal, Alloca);
 
     scope->setVal(Name, Alloca);
 
@@ -353,7 +353,7 @@ Value *UnaryExprAST::codegen() {
         return LogErrorV("Unkown unary operator");
 
     SispDbgInfo.emitLocation(this);
-    return TheParser->getBuilder()->CreateCall(F, OperandV, "unop");
+    return getBuilder()->CreateCall(F, OperandV, "unop");
 }
 
 Value *CompoundExprAST::codegen() {
@@ -365,7 +365,7 @@ Value *CompoundExprAST::codegen() {
 //        if (!RetVal)
 //            return nullptr;
     }
-    return RetVal ?: Constant::getNullValue(Type::getInt64Ty(TheParser->getContext()));;
+    return RetVal ?: Constant::getNullValue(Type::getInt64Ty(getContext()));;
 }
 
 Value *CallExprAST::codegen() {
@@ -380,17 +380,17 @@ Value *CallExprAST::codegen() {
         // %ptr = malloc()
         auto Bytes = scope->getClass(Callee)->getMemoryBytes();
         auto MallocF = TheParser->getModule().getFunction("malloc");
-        Value *SizeArg[] = {ConstantInt::get(Type::getInt64Ty(TheParser->getContext()), Bytes)};
-        auto Ptr = TheParser->getBuilder()->CreateCall(MallocF, SizeArg, "ptr");
+        Value *SizeArg[] = {ConstantInt::get(Type::getInt64Ty(getContext()), Bytes)};
+        auto Ptr = getBuilder()->CreateCall(MallocF, SizeArg, "ptr");
 
         // %obj = bitcase %ptr
-        auto ObjPtr = TheParser->getBuilder()->CreateBitCast(Ptr, ClassType->getPointerTo(), "obj");
+        auto ObjPtr = getBuilder()->CreateBitCast(Ptr, ClassType->getPointerTo(), "obj");
 
         return ObjPtr;
 
-//        auto F = TheParser->getBuilder()->GetInsertBlock()->getParent();
+//        auto F = getBuilder()->GetInsertBlock()->getParent();
 //        auto Alloca = Parser::CreateEntryBlockAlloca(F, ClassType, "obj");
-//        return TheParser->getBuilder()->CreateBitCast(Alloca, ClassType->getPointerTo());
+//        return getBuilder()->CreateBitCast(Alloca, ClassType->getPointerTo());
     }
 
     // If argument mismatch error.
@@ -404,7 +404,7 @@ Value *CallExprAST::codegen() {
             return nullptr;
     }
 
-    return TheParser->getBuilder()->CreateCall(CalleeF, ArgsV, "calltmp");
+    return getBuilder()->CreateCall(CalleeF, ArgsV, "calltmp");
 }
 
 Value * MethodCallAST::codegen() {
@@ -431,16 +431,16 @@ Value * MethodCallAST::codegen() {
             return nullptr;
     }
 
-    return TheParser->getBuilder()->CreateCall(CalleeF, ArgsV, "calltmp");
+    return getBuilder()->CreateCall(CalleeF, ArgsV, "calltmp");
 }
 
 Function *PrototypeAST::codegen() {
     vector<Type *> ArgTypes;
     for (auto E = Args.begin(); E != Args.end(); E ++) {
-        Type *ArgType = (*E)->getIRType(TheParser->getContext());
+        Type *ArgType = (*E)->getIRType(getContext());
         ArgTypes.push_back(ArgType);
     }
-    Type *TheRetType = RetType.getType(TheParser->getContext());
+    Type *TheRetType = RetType.getType(getContext());
     FunctionType *FT = FunctionType::get(TheRetType, ArgTypes, false);
     Function *F = Function::Create(FT, Function::ExternalLinkage, Name, TheParser->getModule());
     unsigned long Idx = 0;
@@ -463,8 +463,8 @@ Function *FunctionAST::codegen() {
         TheParser->SetBinOpPrecedence(P.getOperatorName(), P.getBinaryPrecedence());
 
     // Create a new basic block to start insertion into.
-    auto BB = BasicBlock::Create(TheParser->getContext(), "entry", F);
-    TheParser->getBuilder()->SetInsertPoint(BB);
+    auto BB = BasicBlock::Create(getContext(), "entry", F);
+    getBuilder()->SetInsertPoint(BB);
 
     // Create a subprogram DIE for this function.
     DIFile *Unit = DBuilder->createFile(SispDbgInfo.TheCU->getFilename(),
@@ -505,10 +505,10 @@ Function *FunctionAST::codegen() {
 
         DBuilder->insertDeclare(Alloca, D, DBuilder->createExpression(),
                                 DebugLoc::get(LineNo, 0, SP),
-                                TheParser->getBuilder()->GetInsertBlock());
+                                getBuilder()->GetInsertBlock());
 
-        TheParser->getBuilder()->CreateStore(&Arg, Alloca);
-        auto ArgLocal = TheParser->getBuilder()->CreateLoad(Alloca);
+        getBuilder()->CreateStore(&Arg, Alloca);
+        auto ArgLocal = getBuilder()->CreateLoad(Alloca);
         Body->getScope()->setVal(Arg.getName(), ArgLocal);
     }
 
@@ -516,7 +516,7 @@ Function *FunctionAST::codegen() {
 
     if (Value *RetVal = Body->codegen()) {
         // Finish off the function.
-        TheParser->getBuilder()->CreateRet(RetVal);
+        getBuilder()->CreateRet(RetVal);
 
         SispDbgInfo.LexicalBlocks.pop_back();
 
@@ -545,9 +545,9 @@ Function *FunctionAST::codegen() {
 StructType * ClassDeclAST::codegen() {
     vector<Type *> Tys;
     for (auto E = Members.begin(); E != Members.end(); E ++) {
-        Tys.push_back((*E)->VType.getType(TheParser->getContext()));
+        Tys.push_back((*E)->VType.getType(getContext()));
     }
-    auto ST = StructType::create(TheParser->getContext(), Tys, string("class") + "." + Name, false);
+    auto ST = StructType::create(getContext(), Tys, string("class") + "." + Name, false);
     scope->setClassType(Name, ST);
 
     for (auto E = Methods.begin(); E != Methods.end(); E ++)
