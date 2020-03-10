@@ -27,12 +27,16 @@
 //#define TEST "link"
 //#define TEST "exec"
 //#define TEST "class_member"
-#define TEST "class_method"
+//#define TEST "class_method"
+//#define TEST "new_int"
+//#define TEST "int_pointer"
+//#define TEST "int_indexer"
+#define TEST "int_pointer_arg"
 
 #ifdef TEST
 
 int main(int argc, const char * argv[]) {
-    
+
     std::string testsDir = std::string(PROJECT_DIR) + "/sisp/tests";
     for (const auto & entry : std::__fs::filesystem::directory_iterator(testsDir)) {
 

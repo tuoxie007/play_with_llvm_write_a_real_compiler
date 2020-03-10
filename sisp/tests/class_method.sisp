@@ -1,21 +1,19 @@
-extern int malloc(int s);
-
 class Boy {
   int age;
-  float tall;
+  int tall;
 
-  float getTall() {
+  int getTall(int x) {
     this.tall;
   }
 
-  float setTall(float val) {
+  int setTall(int val) {
     this.tall = val;
   }
 }
 
-float boyTall()
+int main()
 {
   Boy b = Boy();
-  b.setTall(180.0);
+  b.setTall(180);
   b.tall;
 }

@@ -34,6 +34,7 @@ typedef enum Token {
     tok_type_object = -18,
     tok_integer_literal = -19,
     tok_float_literal = -20,
+    tok_new = -21,
 
     tok_left_paren = '(',
     tok_right_paren = ')',
@@ -59,6 +60,7 @@ typedef enum Token {
     tok_and = '&',
     tok_left_square = '[',
     tok_right_square = ']',
+    tok_star = '*',
 
 } Token;
 
@@ -71,7 +73,6 @@ static string tok_tos(Token t) {
         case tok_class: return "<class>";
         case tok_extern: return "<extern>";
         case tok_identifier: return "<id>";
-//        case tok_number: return "<number>";
         case tok_if: return "<if>";
         case tok_else: return "<else>";
         case tok_for: return "<for>";
@@ -84,6 +85,7 @@ static string tok_tos(Token t) {
         case tok_type_float: return "<float>";
         case tok_type_string: return "<string>";
         case tok_type_object: return "<object>";
+        case tok_new: return "<new>";
         default: return to_string((int)t);
     }
 }

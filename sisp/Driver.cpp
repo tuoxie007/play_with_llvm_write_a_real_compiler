@@ -71,6 +71,8 @@ int compile(std::string &src, std::map<string, string> &opts) {
     InitializeNativeTargetAsmPrinter();
     InitializeNativeTargetAsmParser();
 
+    src = string("extern int *malloc(int x);") + src;
+
     cout << src << endl;
 
     std::string jit = opts["jit"];

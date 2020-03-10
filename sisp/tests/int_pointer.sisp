@@ -1,0 +1,4 @@
+
+
+int *ip = new int(10);
+

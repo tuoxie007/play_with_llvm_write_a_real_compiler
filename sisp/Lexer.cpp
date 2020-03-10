@@ -69,6 +69,8 @@ Token Lexer::getNextToken(unsigned ForwardStep) {
                 return CurTok = tok_type_string;
             if (IdentifierStr == "class")
                 return CurTok = tok_class;
+            if (IdentifierStr == "new")
+                return CurTok = tok_new;
 
             return CurTok = tok_identifier;
         }

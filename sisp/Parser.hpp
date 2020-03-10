@@ -81,14 +81,90 @@ enum VarTypeID {
     VarTypeArray,
     VarTypeClass,
     VarTypeObject,
+    VarTypeStar,
 };
+
+class VarType;
 
 class VarType {
 public:
     VarTypeID TypeID;
     string ClassName;
+    VarType *PointedType;
+
     VarType() {}
-    VarType(VarTypeID T, string C = ""): TypeID(T), ClassName(C) {}
+    VarType(VarTypeID T, string C = ""): TypeID(T), ClassName(C), PointedType(nullptr) {}
+    VarType(Token T, string C = ""): ClassName(C), PointedType(nullptr) {
+        switch (T) {
+            case tok_type_bool: TypeID = VarTypeBool; break;
+            case tok_type_int: TypeID = VarTypeInt; break;
+            case tok_type_float: TypeID = VarTypeFloat; break;
+            case tok_type_object: TypeID = VarTypeObject; break;
+            default: TypeID = VarTypeUnkown; break;
+        }
+    }
+    static VarType getPointerType(VarType Ty) {
+        VarType VT;
+        VT.TypeID = VarTypeStar;
+        VT.PointedType = new VarType(Ty.TypeID, Ty.ClassName);
+        return VT;
+    }
+    const bool isPointer() const { return TypeID == VarTypeStar; }
+    VarType &pointerElement() { return *PointedType; }
+    Value *getDefaultValue(LLVMContext &context) {
+        switch (this->TypeID) {
+            case VarTypeFloat:
+                return ConstantFP::get(context, APFloat(0.0));
+            case VarTypeBool:
+                return ConstantInt::get(context, APInt(1, 0));
+                break;
+            case VarTypeInt:
+            case VarTypeObject:
+            case VarTypeStar:
+                return ConstantInt::get(context, APInt(64, 0));
+            default:
+                assert(false && "not implemented type");
+                return ConstantInt::get(context, APInt(64, 0));
+        }
+    }
+    unsigned getMemoryBytes() {
+        if (TypeID == VarTypeBool) {
+            return 1;
+        } else if (TypeID == VarTypeInt) {
+            return 8;
+        } else if (TypeID == VarTypeFloat) {
+            return 8;
+        } else if (TypeID == VarTypeStar) {
+            return 8;
+        } else {
+            assert(false && "unkown type");
+            return 0;
+        }
+    }
+
+    llvm::Type * getType(LLVMContext &contxt) {
+        switch (TypeID) {
+            case VarTypeBool:
+                return llvm::Type::getInt1Ty(contxt);
+            case VarTypeInt:
+                return llvm::Type::getInt64Ty(contxt);
+            case VarTypeFloat:
+                return llvm::Type::getDoubleTy(contxt);
+            default:
+                assert(false && "not implemented type");
+                break;
+        }
+        return nullptr;
+    }
+    string dumpJSON() {
+        int TypeIdValue = (int)TypeID;
+        const char *ClassNameStr = ClassName.length() > 0 ? ClassName.c_str() : "";
+        const char *PointedTypeStr = PointedType ? PointedType->dumpJSON().c_str() : "null";
+        return FormatString("{`type`: `VarType`, `TypeID`: %d, `ClassName`: `%s`, `PointedType`: %s}",
+                            TypeIdValue,
+                            ClassNameStr,
+                            PointedTypeStr);
+    }
 };
 
 class ExprAST;
@@ -186,6 +262,18 @@ class VarExprAST : public ExprAST {
     VarType Type;
     unique_ptr<ExprAST> Init;
 
+
+    static llvm::Type *getIRType(LLVMContext &context, shared_ptr<Scope> scope, VarType &VT) {
+        switch (VT.TypeID) {
+            case VarTypeBool: return Type::getInt1Ty(context);
+            case VarTypeInt: return Type::getInt64Ty(context);
+            case VarTypeFloat: return Type::getDoubleTy(context);
+            case VarTypeObject: return scope->getClassType(VT.ClassName)->getPointerTo();
+            case VarTypeStar: return getIRType(context, scope, VT.pointerElement())->getPointerTo();
+            default: return nullptr;
+        }
+    }
+
 public:
     VarExprAST(shared_ptr<Scope> scope, VarType type, string name, unique_ptr<ExprAST> init)
         : ExprAST(scope), Type(type), Name(name), Init(std::move(init)) {
@@ -195,20 +283,13 @@ public:
     Value *codegen() override;
     const string &getName() const { return Name; }
     const VarType &getType() const { return Type; }
-    llvm::Type *getIRType(LLVMContext &Context) const {
-        switch (Type.TypeID) {
-            case VarTypeBool: return Type::getInt1Ty(Context);
-            case VarTypeInt: return Type::getInt64Ty(Context);
-            case VarTypeFloat: return Type::getDoubleTy(Context);
-            case VarTypeObject: return scope->getClassType(Type.ClassName);
-            default: return nullptr;
-        }
+    llvm::Type *getIRType(LLVMContext &Context) {
+        return VarExprAST::getIRType(Context, scope, Type);
     }
     ExprAST * getInit() const { return Init.get(); }
 
-    string dumpJSON() {
-//        return format("{} {}!", "Hello", "world", "something"); // OK, produces "Hello world!"
-        return FormatString("{`type`: `Var`, `Name`: `%s`}", Name.c_str());
+    string dumpJSON() override {
+        return FormatString("{`type`: `Var`, `Name`: `%s`, `Type`: %d}", Name.c_str(), (int)Type.TypeID);
     }
 };
 
@@ -218,7 +299,7 @@ class CompoundExprAST : public ExprAST {
 public:
     CompoundExprAST(shared_ptr<Scope> scope, vector<unique_ptr<ExprAST>> exprs): ExprAST(scope), Exprs(std::move(exprs)) {}
     Value *codegen() override;
-    string dumpJSON() {
+    string dumpJSON() override {
         return FormatString("{`type`: `Compound`, `Exprs`: %s]}", ExprAST::listDumpJSON(Exprs).c_str());
     }
 };
@@ -229,7 +310,7 @@ class IntegerLiteralAST : public ExprAST {
 public:
     IntegerLiteralAST(shared_ptr<Scope> scope, long val): ExprAST(scope), Val(val) {}
     Value *codegen() override;
-    string dumpJSON() {
+    string dumpJSON() override {
         return FormatString("{`type`: `IntegerLiteral`, `Val`: `%s`}", to_string(Val).c_str());
     }
 };
@@ -240,7 +321,7 @@ class FloatLiteralAST : public ExprAST {
 public:
     FloatLiteralAST(shared_ptr<Scope> scope, double val): ExprAST(scope), Val(val) {}
     Value *codegen() override;
-    string dumpJSON() {
+    string dumpJSON() override {
         return FormatString("{`type`: `FloatLiteral`, `Val`: `%s`}", to_string(Val).c_str());
     }
 };
@@ -252,8 +333,19 @@ public:
     VariableExprAST(shared_ptr<Scope> scope, SourceLocation loc, const string &name) : ExprAST(scope, loc), Name(name) {}
     Value *codegen() override;
     string &getName() { return Name; }
-    string dumpJSON() {
+    string dumpJSON() override {
         return FormatString("{`type`: `Variable`, `Name`: `%s`}", Name.c_str());
+    }
+};
+
+class RightValueAST : public ExprAST {
+    unique_ptr<ExprAST> Expr;
+
+public:
+    RightValueAST(shared_ptr<Scope> scope, unique_ptr<ExprAST> expr) : ExprAST(scope), Expr(std::move(expr)) {}
+    Value *codegen() override;
+    string dumpJSON() override {
+        return FormatString("{`type`: `RightValue`, `Expr`: %s}", Expr->dumpJSON().c_str());
     }
 };
 
@@ -269,7 +361,7 @@ public:
                   unique_ptr<ExprAST> rhs)
         : ExprAST(scope, loc), Op(op), LHS(std::move(lhs)), RHS(std::move(rhs)) {}
     Value *codegen() override;
-    string dumpJSON() {
+    string dumpJSON() override {
         string lhs = LHS->dumpJSON();
         string rhs = RHS->dumpJSON();
         return FormatString("{`type`: `Binary`, `Operator`: `%c`, `LHS`: %s, `RHS`: %s}", Op, LHS->dumpJSON().c_str(), RHS->dumpJSON().c_str());
@@ -287,7 +379,7 @@ public:
                 vector<unique_ptr<ExprAST>> args)
         : ExprAST(scope, loc), Callee(callee), Args(std::move(args)) {}
     Value *codegen() override;
-    string dumpJSON() {
+    string dumpJSON() override {
         return FormatString("{`type`: `Call`, `Callee`: `%s`, `Args`: %s}", Callee.c_str(), ExprAST::listDumpJSON(Args).c_str());
     }
 };
@@ -308,7 +400,7 @@ public:
                   vector<unique_ptr<ExprAST>> args)
         : ExprAST(scope), Var(std::move(var)), Callee(callee), Args(std::move(args)) {}
     Value *codegen() override;
-    string dumpJSON() {
+    string dumpJSON() override {
         return FormatString("{`type`: `MethodCall`, `Var`: %s, `Callee`: `%s`, `Args`: %s}", Var->dumpJSON().c_str(), Callee.c_str(), ExprAST::listDumpJSON(Args).c_str());
     }
 };
@@ -328,8 +420,34 @@ public:
         : ExprAST(scope), Var(std::move(var)), Member(member), RHS(std::move(RHS)) {}
 
     Value *codegen() override;
-    string dumpJSON() {
-        return FormatString("{`type`: `MemberAccess`, `Var`: %s, `Member`: `%s`}", Var->dumpJSON().c_str(), Member.c_str());
+    string dumpJSON() override {
+        return FormatString("{`type`: `MemberAccess`, `Var`: %s, `Member`: `%s`, `RHS`: %s}",
+                            Var->dumpJSON().c_str(), Member.c_str(), RHS ? RHS->dumpJSON().c_str() : "null");
+    }
+};
+
+class IndexerAST : public ExprAST {
+
+    unique_ptr<ExprAST> Var;
+    unique_ptr<ExprAST> Index;
+    unique_ptr<ExprAST> RHS;
+
+public:
+    IndexerAST(shared_ptr<Scope> scope,
+               unique_ptr<ExprAST> var,
+               unique_ptr<ExprAST> index)
+        : ExprAST(scope), Var(std::move(var)), Index(std::move(index)) {}
+
+    IndexerAST(shared_ptr<Scope> scope,
+               unique_ptr<ExprAST> var,
+               unique_ptr<ExprAST> index,
+               unique_ptr<ExprAST> RHS)
+        : ExprAST(scope), Var(std::move(var)), Index(std::move(index)), RHS(std::move(RHS)) {}
+
+    Value *codegen() override;
+    string dumpJSON() override {
+        return FormatString("{`type`: `IndexSubscribe`, `Var`: %s, `Index`: %s, `RHS`: %s}",
+                            Var->dumpJSON().c_str(), Index->dumpJSON().c_str(), RHS ? RHS->dumpJSON().c_str() : "null");
     }
 };
 
@@ -395,7 +513,7 @@ public:
         : ExprAST(scope, loc), Cond(std::move(cond)), Then(std::move(then)), Else(std::move(elseE)) {}
 
     Value * codegen() override;
-    string dumpJSON() {
+    string dumpJSON() override {
         return FormatString("{`type`: `If`, `Cond`: %s, `Then`: %s, `Else`: %s}", Cond->dumpJSON().c_str(), Then->dumpJSON().c_str(), Else->dumpJSON().c_str());
     }
 };
@@ -417,7 +535,7 @@ public:
         Body(std::move(body)) {}
 
     Value * codegen() override;
-    string dumpJSON() {
+    string dumpJSON() override {
         return FormatString("{`type`: `For`, `Var`: %s, `End`: %s, `Step`: %s, `Body`: %s}", Var->dumpJSON().c_str(), End->dumpJSON().c_str(), Step->dumpJSON().c_str(), Body->dumpJSON().c_str());
     }
 };
@@ -431,20 +549,36 @@ public:
         : ExprAST(scope), Opcode(opcode), Operand(std::move(operand)) {}
 
     Value * codegen() override;
-    string dumpJSON() {
+    string dumpJSON() override {
         return FormatString("{`type`: `Unary`, `Operand`: `%s`}", Operand->dumpJSON().c_str());
+    }
+};
+
+class NewAST : public ExprAST {
+    VarType Type;
+    unique_ptr<ExprAST> Size;
+
+public:
+    NewAST(shared_ptr<Scope> scope, VarType type, unique_ptr<ExprAST> size)
+        : ExprAST(scope), Type(type), Size(std::move(size)) {}
+
+    Value * codegen() override;
+    string dumpJSON() override {
+        return FormatString("{`type`: `New`, `Type`: `%s`, `Size`: %s}", Type.dumpJSON().c_str(), Size->dumpJSON().c_str());
     }
 };
 
 class MemberAST {
 public:
-    Token Type;
+//    Token Type;
+    VarType VType;
     string Name;
 
-    MemberAST(Token type, string name) : Type(type), Name(name) {}
+//    MemberAST(Token type, string name) : Type(type), Name(name) {}
+    MemberAST(VarType type, string &name) : VType(type), Name(name) {}
 
-    string dumpJSON() {
-        return FormatString("{`type`: `Member`, `Type`: `%s`, `Name`: `%s`}", tok_tos(Type).c_str(), Name.c_str());
+    string dumpJSON()  {
+        return FormatString("{`type`: `Member`, `Type`: %s, `Name`: `%s`}", VType.dumpJSON().c_str(), Name.c_str());
     };
 };
 
@@ -477,20 +611,12 @@ public:
     unsigned getMemoryBytes() {
         unsigned bytes = 0;
         for (auto E = Members.begin(); E != Members.end(); E ++) {
-            if ((*E)->Type == tok_type_int) {
-                bytes += 8;
-            } else if ((*E)->Type == tok_type_float) {
-                bytes += 8;
-            } else if ((*E)->Type == tok_type_float) {
-               bytes += 1;
-            } else {
-                assert(false && "unkown type");
-            }
+            bytes += (*E)->VType.getMemoryBytes();
         }
         return bytes;
     }
     StructType *codegen();
-    string dumpJSON() {
+    string dumpJSON()  {
         return FormatString("{`Type`: `ClassDecl`, `Name`: `%s`}", Name.c_str());
     }
 };
@@ -536,12 +662,26 @@ class Parser {
     std::unique_ptr<Lexer> TheLexer;
     std::string TopFuncName;
 
+    Token getCurTok() {
+        return TheLexer->CurTok;
+    }
+
+    Token SkipColon() {
+        if (getCurTok() == tok_colon) {
+            return getNextToken();
+        }
+        return getCurTok();
+    }
+
+    int GetTokenPrecedence();
+
+    VarType ParseType(shared_ptr<Scope> scope);
+
     unique_ptr<ExprAST> ParseIntegerLiteral(shared_ptr<Scope> scope);
     unique_ptr<ExprAST> ParseFloatLiteral(shared_ptr<Scope> scope);
     unique_ptr<ExprAST> ParseParenExpr(shared_ptr<Scope> scope);
     std::unique_ptr<ExprAST> ParseIdentifierExpr(shared_ptr<Scope> scope);
     unique_ptr<ExprAST> ParsePrimary(shared_ptr<Scope> scope);
-    int GetTokenPrecedence();
     unique_ptr<ExprAST> ParseExpr(shared_ptr<Scope> scope);
     unique_ptr<ExprAST> ParseBinOpRHS(shared_ptr<Scope> scope, int ExprPrec, unique_ptr<ExprAST> LHS);
     unique_ptr<ExprAST> ParseIfExpr(shared_ptr<Scope> scope);
@@ -555,6 +695,7 @@ class Parser {
     unique_ptr<FunctionAST> ParseTopLevelExpr(shared_ptr<Scope> scope);
     unique_ptr<MemberAST> ParseMemberAST(shared_ptr<Scope> scope);
     unique_ptr<ClassDeclAST> ParseClassDecl(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParseNew(shared_ptr<Scope> scope);
 
 public:
     Parser(bool jitEnabled, std::string src)

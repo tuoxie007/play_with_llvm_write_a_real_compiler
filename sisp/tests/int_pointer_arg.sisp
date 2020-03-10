@@ -1,0 +1,10 @@
+
+int retrieve(int *p) {
+    p[0];
+}
+
+int main() {
+    int *p = new int(1);
+    p[0] = 42;
+    retrieve(p);
+}

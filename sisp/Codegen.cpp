@@ -68,9 +68,18 @@ Value *VariableExprAST::codegen() {
 
 //    cout << "VariableExprAST::codegen()" << V << endl;
     SispDbgInfo.emitLocation(this);
+
+    // var
+    return V;
+}
+
+Value *RightValueAST::codegen() {
+    auto V = Expr->codegen();
     if (V->getType()->isPointerTy() && V->getType()->getPointerElementType()->isStructTy())
         return V;
-    return TheParser->getBuilder()->CreateLoad(V, Name);
+    else if (V->getType()->isPointerTy())
+        return TheParser->getBuilder()->CreateLoad(V, "rv");
+    return V;
 }
 
 Value *BinaryExprAST::codegen() {
@@ -162,17 +171,50 @@ Value *MemberAccessAST::codegen() {
     if (!ClsDecl)
         return LogErrorV(string("Class not found: ") + ClassName);
     unsigned Idx = ClsDecl->indexOfMember(Member);
-    auto MT = getType(ClsDecl->getMember(Idx)->Type, TheParser->getContext());
+    VarType VT = ClsDecl->getMember(Idx)->VType;
+    auto MT = VT.getType(TheParser->getContext());
     auto ElePtr = TheParser->getBuilder()->CreateStructGEP(V, Idx, string(".") + Member); // i64*
     if (RHS) {
         Value *RVal;
-        RVal = RHS->codegen();//i64
+        RVal = RHS->codegen(); //i64
         if (!RVal)
             return nullptr;
-        TheParser->getBuilder()->CreateStore(RVal, ElePtr);
+        TheParser->getBuilder()->CreateStore(RHS->codegen(), ElePtr);
         return RVal;
     }
     return TheParser->getBuilder()->CreateLoad(MT, ElePtr);
+}
+
+Value *IndexerAST::codegen() {
+    auto V = Var->codegen();
+    if (V->getType()->isPointerTy()) {
+
+        auto Idx = Index->codegen();
+        auto ElePtr = TheParser->getBuilder()->CreateGEP(V, Idx);
+
+        auto EleTy = V->getType()->getPointerElementType();
+        if (RHS) {
+            Value *RVal;
+            RVal = RHS->codegen();
+            if (!RVal)
+                return nullptr;
+            TheParser->getBuilder()->CreateStore(RVal, ElePtr);
+            return RVal;
+        }
+        return TheParser->getBuilder()->CreateLoad(EleTy, ElePtr, "idxVal");
+    } else {
+        return LogErrorV("fail to get index of non pointer type");
+    }
+}
+
+Value *NewAST::codegen() {
+    unsigned Sizeof = Type.getMemoryBytes();
+    auto Cap = TheParser->getBuilder()->CreateMul(Size->codegen(), ConstantInt::get(TheParser->getContext(), APInt(64, Sizeof)));
+    auto MallocF = TheParser->getModule().getFunction("malloc");
+    Value *SizeArg[] = { Cap };
+    auto Ptr = TheParser->getBuilder()->CreateCall(MallocF, SizeArg, "ptr");
+    auto ObjPtr = TheParser->getBuilder()->CreateBitCast(Ptr, Type.getType(TheParser->getContext())->getPointerTo(), "new");
+    return ObjPtr;
 }
 
 Value *IfExprAST::codegen() {
@@ -284,16 +326,13 @@ Value *VarExprAST::codegen() {
         InitVal = Init->codegen();
         scope->setVal(Name, InitVal);
         return InitVal;
-    } else if (Type.TypeID == VarTypeFloat) {
-        InitVal = ConstantFP::get(TheParser->getContext(), APFloat(0.0));
-    } else if (Type.TypeID == VarTypeBool) {
-        InitVal = ConstantInt::get(TheParser->getContext(), APInt(1, 0));
-    } else if (Type.TypeID == VarTypeInt) {
-        InitVal = ConstantInt::get(TheParser->getContext(), APInt(64, 0));
-    } else if (Type.TypeID == VarTypeObject) {
-        InitVal = ConstantPointerNull::get(PointerType::getUnqual(scope->getClassType(Type.ClassName)));
+//        if (InitVal->getType()->isPointerTy()) {
+//        }
+//        auto Load = TheParser->getBuilder()->CreateLoad(InitVal->getType()->getPointerTo(), InitVal, "var");
+//        scope->setVal(Name, Load);
+//        return Load;
     } else {
-        assert(false && "not implemented type");
+        InitVal = Type.getDefaultValue(TheParser->getContext());
     }
 
     AllocaInst *Alloca = Parser::CreateEntryBlockAlloca(F, this);
@@ -360,9 +399,9 @@ Value *CallExprAST::codegen() {
 
     std::vector<Value *> ArgsV;
     for (unsigned long i = 0, e = Args.size(); i != e; ++i) {
-    ArgsV.push_back(Args[i]->codegen());
-    if (!ArgsV.back())
-        return nullptr;
+        ArgsV.push_back(Args[i]->codegen());
+        if (!ArgsV.back())
+            return nullptr;
     }
 
     return TheParser->getBuilder()->CreateCall(CalleeF, ArgsV, "calltmp");
@@ -399,8 +438,6 @@ Function *PrototypeAST::codegen() {
     vector<Type *> ArgTypes;
     for (auto E = Args.begin(); E != Args.end(); E ++) {
         Type *ArgType = (*E)->getIRType(TheParser->getContext());
-        if (ArgType->isStructTy())
-            ArgType = ArgType->getPointerTo();
         ArgTypes.push_back(ArgType);
     }
     Type *TheRetType = getType(RetType, TheParser->getContext());
@@ -458,8 +495,7 @@ Function *FunctionAST::codegen() {
     unsigned ArgIdx = 0;
     for (auto &Arg : F->args()) {
         auto ArgTy = Arg.getType();
-        if (ArgTy->isStructTy())
-            ArgTy = ArgTy->getPointerTo();
+//        Body->getScope()->setVal(Arg.getName(), &Arg);
         auto Alloca = Parser::CreateEntryBlockAlloca(F, ArgTy, Arg.getName());
 
         // Create a debug descriptor for the variable.
@@ -472,7 +508,8 @@ Function *FunctionAST::codegen() {
                                 TheParser->getBuilder()->GetInsertBlock());
 
         TheParser->getBuilder()->CreateStore(&Arg, Alloca);
-        Body->getScope()->setVal(Arg.getName(), Alloca);
+        auto ArgLocal = TheParser->getBuilder()->CreateLoad(Alloca);
+        Body->getScope()->setVal(Arg.getName(), ArgLocal);
     }
 
     SispDbgInfo.emitLocation(Body.get());
@@ -508,7 +545,7 @@ Function *FunctionAST::codegen() {
 StructType * ClassDeclAST::codegen() {
     vector<Type *> Tys;
     for (auto E = Members.begin(); E != Members.end(); E ++) {
-        Tys.push_back(getType((*E)->Type, TheParser->getContext()));
+        Tys.push_back((*E)->VType.getType(TheParser->getContext()));
     }
     auto ST = StructType::create(TheParser->getContext(), Tys, string("class") + "." + Name, false);
     scope->setClassType(Name, ST);
