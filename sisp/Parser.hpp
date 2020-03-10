@@ -150,6 +150,8 @@ public:
                 return llvm::Type::getInt64Ty(contxt);
             case VarTypeFloat:
                 return llvm::Type::getDoubleTy(contxt);
+            case VarTypeStar:
+                return PointedType->getType(contxt)->getPointerTo();
             default:
                 assert(false && "not implemented type");
                 break;
@@ -453,7 +455,8 @@ public:
 
 class PrototypeAST {
     SourceLocation Loc;
-    Token RetType;
+//    Token RetType;
+    VarType RetType;
     string Name;
     vector<unique_ptr<VarExprAST>> Args;
     bool IsOperator;
@@ -461,7 +464,7 @@ class PrototypeAST {
 
 public:
     PrototypeAST(SourceLocation loc,
-                 Token type,
+                 VarType &type,
                  string &name,
                  vector<unique_ptr<VarExprAST>> args,
                  bool isOperator = false,

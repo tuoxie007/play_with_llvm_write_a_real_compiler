@@ -445,8 +445,8 @@ unique_ptr<ExprAST> Parser::ParseVarExpr(shared_ptr<Scope> scope) {
 unique_ptr<PrototypeAST> Parser::ParsePrototype(shared_ptr<Scope> scope, string &ClassName) {
 
     SourceLocation FnLoc = TheLexer->CurLoc;
-    Token Type = getCurTok();
-    getNextToken();
+//    Token Type = getCurTok();
+    VarType RetType = ParseType(scope);
     string FnName;
 
     unsigned Kind = 0;
@@ -524,7 +524,7 @@ unique_ptr<PrototypeAST> Parser::ParsePrototype(shared_ptr<Scope> scope, string 
     if (Kind && Args.size() != Kind)
         return LogErrorP("Invalid number of operands for operator");
 
-    return make_unique<PrototypeAST>(FnLoc, Type, FnName, std::move(Args), Kind != 0, BinaryPrecedence);
+    return make_unique<PrototypeAST>(FnLoc, RetType, FnName, std::move(Args), Kind != 0, BinaryPrecedence);
 }
 
 unique_ptr<FunctionAST> Parser::ParseDefinition(shared_ptr<Scope> scope) {
@@ -561,7 +561,8 @@ unique_ptr<PrototypeAST> Parser::ParseExtern(shared_ptr<Scope> scope) {
 unique_ptr<FunctionAST> Parser::ParseTopLevelExpr(shared_ptr<Scope> scope) {
     SourceLocation FnLoc = TheLexer->CurLoc;
     if (auto E = ParseExpr(scope)) {
-        auto Proto = make_unique<PrototypeAST>(FnLoc, tok_type_int, TopFuncName, vector<unique_ptr<VarExprAST>>());
+        VarType RetType(VarTypeInt);
+        auto Proto = make_unique<PrototypeAST>(FnLoc, RetType, TopFuncName, vector<unique_ptr<VarExprAST>>());
         return make_unique<FunctionAST>(std::move(Proto), std::move(E));
     }
     return nullptr;

@@ -440,7 +440,7 @@ Function *PrototypeAST::codegen() {
         Type *ArgType = (*E)->getIRType(TheParser->getContext());
         ArgTypes.push_back(ArgType);
     }
-    Type *TheRetType = getType(RetType, TheParser->getContext());
+    Type *TheRetType = RetType.getType(TheParser->getContext());
     FunctionType *FT = FunctionType::get(TheRetType, ArgTypes, false);
     Function *F = Function::Create(FT, Function::ExternalLinkage, Name, TheParser->getModule());
     unsigned long Idx = 0;
