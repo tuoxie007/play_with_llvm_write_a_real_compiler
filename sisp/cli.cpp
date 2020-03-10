@@ -40,7 +40,8 @@ int main(int argc, const char * argv[]) {
     std::string testsDir = std::string(PROJECT_DIR) + "/sisp/tests";
     for (const auto & entry : std::__fs::filesystem::directory_iterator(testsDir)) {
 
-        if (entry.path().filename() != std::string(TEST) + ".sisp") continue;
+        auto filename = entry.path().filename();
+        if (filename != std::string(TEST) + ".sisp") continue;
 
         std::cout << "📟 start building " << entry.path().filename() << std::endl;
 
@@ -58,7 +59,8 @@ int main(int argc, const char * argv[]) {
         opts["out"] = testsDir + "/" + TEST + ".o";
         opts["obj"] = std::string(TEST) != "exec" ? "1" : "0";
 
-        compile(src, opts);
+        std::string module = std::string(filename);
+        compile(module, src, opts);
     }
     return 0;
 }
@@ -84,7 +86,7 @@ int main(int argc, const char * argv[]) {
         src.assign((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
     }
-    compile(src);
+    compile("stdin", src);
     return 0;
 }
 

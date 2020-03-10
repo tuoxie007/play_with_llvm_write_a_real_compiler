@@ -65,7 +65,7 @@ static int MainLoop() {
     }
 }
 
-int compile(std::string &src, std::map<string, string> &opts) {
+int compile(std::string &filename, std::string &src, std::map<string, string> &opts) {
 
     InitializeNativeTarget();
     InitializeNativeTargetAsmPrinter();
@@ -77,7 +77,7 @@ int compile(std::string &src, std::map<string, string> &opts) {
 
     std::string jit = opts["jit"];
     std::string TopFuncName = opts["obj"] == "1" ? "__anon_expr" : "main";
-    TheParser = std::make_unique<Parser>(jit == "1", src);
+    TheParser = std::make_unique<Parser>(jit == "1", src, filename);
     TheParser->SetTopFuncName(TopFuncName);
 
     MainLoop();

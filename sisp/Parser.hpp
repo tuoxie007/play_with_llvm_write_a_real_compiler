@@ -701,7 +701,7 @@ class Parser {
     unique_ptr<ExprAST> ParseNew(shared_ptr<Scope> scope);
 
 public:
-    Parser(bool jitEnabled, std::string src)
+    Parser(bool jitEnabled, std::string src, std::string filename)
     : JITEnabled(jitEnabled), TheLexer(std::make_unique<Lexer>(src)) {
 
         Builder = new IRBuilder<>(LLContext);
@@ -723,7 +723,7 @@ public:
             TheModule->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
 
         DBuilder = std::make_unique<DIBuilder>(*TheModule);
-        SispDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile("ch10.sisp", "."), "Sisp Compiler", 0, "", 0);
+        SispDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile(filename, "."), "Sisp Compiler", 0, "", 0);
     }
 
     Token getNextToken();
