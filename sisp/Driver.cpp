@@ -32,6 +32,7 @@ static int MainLoop() {
                 TheParser->getNextToken();
                 break;
             case tok_class:
+            case tok_type_void:
             case tok_type_bool:
             case tok_type_int:
             case tok_type_float:
@@ -55,7 +56,9 @@ int compile(std::string &filename, std::string &src, std::map<string, string> &o
     InitializeNativeTargetAsmPrinter();
     InitializeNativeTargetAsmParser();
 
-    src = string("extern int *malloc(int x);") + src;
+    src = string("extern int *malloc(int x);")
+          + string("extern void free(int *);")
+          + src;
 
     cout << src << endl;
 

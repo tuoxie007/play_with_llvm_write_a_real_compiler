@@ -65,6 +65,9 @@ static Type * getType(Token type, LLVMContext &contxt) {
         case tok_type_float:
             ArgType = llvm::Type::getDoubleTy(contxt);
             break;
+        case tok_type_void:
+            ArgType = llvm::Type::getVoidTy(contxt);
+            break;
         default:
             assert(false && "not implemented type");
             break;
@@ -82,6 +85,7 @@ enum VarTypeID {
     VarTypeClass,
     VarTypeObject,
     VarTypeStar,
+    VarTypeVoid,
 };
 
 class VarType;
@@ -96,6 +100,7 @@ public:
     VarType(VarTypeID T, string C = ""): TypeID(T), ClassName(C), PointedType(nullptr) {}
     VarType(Token T, string C = ""): ClassName(C), PointedType(nullptr) {
         switch (T) {
+            case tok_type_void: TypeID = VarTypeVoid; break;
             case tok_type_bool: TypeID = VarTypeBool; break;
             case tok_type_int: TypeID = VarTypeInt; break;
             case tok_type_float: TypeID = VarTypeFloat; break;
@@ -117,7 +122,6 @@ public:
                 return ConstantFP::get(context, APFloat(0.0));
             case VarTypeBool:
                 return ConstantInt::get(context, APInt(1, 0));
-                break;
             case VarTypeInt:
             case VarTypeObject:
             case VarTypeStar:
@@ -144,6 +148,8 @@ public:
 
     llvm::Type * getType(LLVMContext &contxt) {
         switch (TypeID) {
+            case VarTypeVoid:
+                return llvm::Type::getVoidTy(contxt);
             case VarTypeBool:
                 return llvm::Type::getInt1Ty(contxt);
             case VarTypeInt:
@@ -267,6 +273,7 @@ class VarExprAST : public ExprAST {
 
     static llvm::Type *getIRType(LLVMContext &context, shared_ptr<Scope> scope, VarType &VT) {
         switch (VT.TypeID) {
+            case VarTypeVoid: return Type::getVoidTy(context);
             case VarTypeBool: return Type::getInt1Ty(context);
             case VarTypeInt: return Type::getInt64Ty(context);
             case VarTypeFloat: return Type::getDoubleTy(context);
@@ -587,13 +594,38 @@ public:
     }
 };
 
+class DeleteAST : public ExprAST {
+    unique_ptr<VariableExprAST> Var;
+
+public:
+    DeleteAST(shared_ptr<Scope> scope, unique_ptr<VariableExprAST> var)
+        : ExprAST(scope), Var(std::move(var)) {}
+
+    Value * codegen() override;
+    string dumpJSON() override {
+        return FormatString("{`type`: `Delete`, `Var`: %s}", Var->dumpJSON().c_str());
+    }
+};
+
+class ReturnAST : public ExprAST {
+    unique_ptr<ExprAST> Var;
+
+public:
+    ReturnAST(shared_ptr<Scope> scope) : ExprAST(scope) {}
+    ReturnAST(shared_ptr<Scope> scope, unique_ptr<ExprAST> var)
+        : ExprAST(scope), Var(std::move(var)) {}
+
+    Value * codegen() override;
+    string dumpJSON() override {
+        return FormatString("{`type`: `Delete`, `Var`: %s}", Var->dumpJSON().c_str());
+    }
+};
+
 class MemberAST {
 public:
-//    Token Type;
     VarType VType;
     string Name;
 
-//    MemberAST(Token type, string name) : Type(type), Name(name) {}
     MemberAST(VarType type, string &name) : VType(type), Name(name) {}
 
     string dumpJSON()  {
@@ -714,6 +746,8 @@ class Parser {
     unique_ptr<MemberAST> ParseMemberAST(shared_ptr<Scope> scope);
     unique_ptr<ClassDeclAST> ParseClassDecl(shared_ptr<Scope> scope);
     unique_ptr<ExprAST> ParseNew(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParseDelete(shared_ptr<Scope> scope);
+    unique_ptr<ExprAST> ParseReturn(shared_ptr<Scope> scope);
 
 public:
     Parser(std::string src, std::string filename)
@@ -763,6 +797,7 @@ public:
     void SetTopFuncName(std::string &FuncName) { TopFuncName = FuncName; };
     VarType getVarType(Token Tok) {
         switch (Tok) {
+            case tok_type_void: return VarType(VarTypeVoid);
             case tok_type_bool: return VarType(VarTypeBool);
             case tok_type_int: return VarType(VarTypeInt);
             case tok_type_float: return VarType(VarTypeFloat);

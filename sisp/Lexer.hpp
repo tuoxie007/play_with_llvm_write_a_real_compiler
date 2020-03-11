@@ -35,6 +35,9 @@ typedef enum Token {
     tok_integer_literal = -19,
     tok_float_literal = -20,
     tok_new = -21,
+    tok_del = -22,
+    tok_type_void = -23,
+    tok_ret = -24,
 
     tok_left_paren = '(',
     tok_right_paren = ')',
@@ -80,12 +83,15 @@ static string tok_tos(Token t) {
         case tok_binary: return "<binary>";
         case tok_unary: return "<unary>";
         case tok_var: return "<var>";
+        case tok_type_void: return "<void>";
         case tok_type_bool: return "<bool>";
         case tok_type_int: return "<int>";
         case tok_type_float: return "<float>";
         case tok_type_string: return "<string>";
         case tok_type_object: return "<object>";
         case tok_new: return "<new>";
+        case tok_del: return "<delete>";
+        case tok_ret: return "<return>";
         default: return to_string((int)t);
     }
 }
@@ -121,10 +127,20 @@ public:
             CurTok == tok_type_int ||
             CurTok == tok_type_float ||
             CurTok == tok_type_string ||
-            CurTok == tok_type_object) {
+            CurTok == tok_type_object ||
+            CurTok == tok_type_void) {
             return CurTok;
         }
         return (Token)0;
+    }
+    string &getIdentifier() {
+        return IdentifierStr;
+    }
+    long getInt() {
+        return IntegerVal;
+    }
+    double getFloat() {
+        return FloatVal;
     }
 };
 

@@ -217,6 +217,16 @@ Value *NewAST::codegen() {
     return ObjPtr;
 }
 
+Value *DeleteAST::codegen() {
+    auto ReleaseF = TheParser->getModule().getFunction("free");
+    getBuilder()->CreateCall(ReleaseF, Var->codegen());
+    return Constant::getNullValue(Type::getVoidTy(getContext()));
+}
+
+Value *ReturnAST::codegen() {
+    return getBuilder()->CreateRet(Var->codegen());
+}
+
 Value *IfExprAST::codegen() {
     SispDbgInfo.emitLocation(this);
     auto CondV = Cond->codegen();
@@ -326,11 +336,6 @@ Value *VarExprAST::codegen() {
         InitVal = Init->codegen();
         scope->setVal(Name, InitVal);
         return InitVal;
-//        if (InitVal->getType()->isPointerTy()) {
-//        }
-//        auto Load = getBuilder()->CreateLoad(InitVal->getType()->getPointerTo(), InitVal, "var");
-//        scope->setVal(Name, Load);
-//        return Load;
     } else {
         InitVal = Type.getDefaultValue(getContext());
     }
@@ -357,15 +362,12 @@ Value *UnaryExprAST::codegen() {
 }
 
 Value *CompoundExprAST::codegen() {
-    int i = 0;
-    Value *RetVal = nullptr;
+//    int i = 0;
     for (auto Expr = Exprs.begin(); Expr != Exprs.end(); Expr ++) {
-        cout << "subExpr " << to_string(i++) << endl;
-        RetVal = (*Expr)->codegen();
-//        if (!RetVal)
-//            return nullptr;
+//        cout << "subExpr " << to_string(i++) << endl;
+        (*Expr)->codegen();
     }
-    return RetVal ?: Constant::getNullValue(Type::getInt64Ty(getContext()));;
+    return nullptr;
 }
 
 Value *CallExprAST::codegen() {
@@ -450,8 +452,6 @@ Function *PrototypeAST::codegen() {
 }
 
 Function *FunctionAST::codegen() {
-    // Transfer ownership of the prototype to the FunctionProtos map, but keep a
-    // reference to it for use below.
     auto &P = *Proto;
     cout << "codegen: " << P.getName() << endl;
     TheParser->AddFunctionProtos(std::move(Proto));
@@ -462,7 +462,6 @@ Function *FunctionAST::codegen() {
     if (P.isBinaryOp())
         TheParser->SetBinOpPrecedence(P.getOperatorName(), P.getBinaryPrecedence());
 
-    // Create a new basic block to start insertion into.
     auto BB = BasicBlock::Create(getContext(), "entry", F);
     getBuilder()->SetInsertPoint(BB);
 
@@ -514,27 +513,13 @@ Function *FunctionAST::codegen() {
 
     SispDbgInfo.emitLocation(Body.get());
 
-    if (Value *RetVal = Body->codegen()) {
-        // Finish off the function.
-        getBuilder()->CreateRet(RetVal);
-
-        SispDbgInfo.LexicalBlocks.pop_back();
-
-        // Validate the generated code, checking for consistency.
-        verifyFunction(*F);
-
-        return F;
-    }
-
-    // Error reading body, remove function.
-    F->eraseFromParent();
-
-    if (P.isBinaryOp())
-        TheParser->SetBinOpPrecedence(Proto->getOperatorName(), -1);
+    Body->codegen();
 
     SispDbgInfo.LexicalBlocks.pop_back();
 
-    return nullptr;
+    verifyFunction(*F);
+
+    return F;
 }
 
 StructType * ClassDeclAST::codegen() {

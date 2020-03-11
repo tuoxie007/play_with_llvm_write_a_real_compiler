@@ -59,6 +59,8 @@ Token Lexer::getNextToken(unsigned ForwardStep) {
                 return CurTok = tok_binary;
             if (IdentifierStr == "var")
                 return CurTok = tok_var;
+            if (IdentifierStr == "void")
+                return CurTok = tok_type_void;
             if (IdentifierStr == "bool")
                 return CurTok = tok_type_bool;
             if (IdentifierStr == "int")
@@ -71,6 +73,10 @@ Token Lexer::getNextToken(unsigned ForwardStep) {
                 return CurTok = tok_class;
             if (IdentifierStr == "new")
                 return CurTok = tok_new;
+            if (IdentifierStr == "delete")
+                return CurTok = tok_del;
+            if (IdentifierStr == "return")
+                return CurTok = tok_ret;
 
             return CurTok = tok_identifier;
         }

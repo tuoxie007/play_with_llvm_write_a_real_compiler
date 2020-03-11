@@ -1,8 +1,8 @@
 
 int func() {
-    42;
+    return 42;
 }
 
-func();
+return func();
 
 # => 42

@@ -125,6 +125,11 @@ unique_ptr<ExprAST> Parser::ParsePrimary(shared_ptr<Scope> scope) {
             return ParseForExpr(scope);
         case tok_new:
             return TheParser->ParseNew(scope);
+        case tok_del:
+            return TheParser->ParseDelete(scope);
+        case tok_ret:
+            return TheParser->ParseReturn(scope);
+        case tok_type_void:
         case tok_type_bool:
         case tok_type_int:
         case tok_type_float:
@@ -393,14 +398,6 @@ unique_ptr<ExprAST> Parser::ParseUnary(shared_ptr<Scope> scope) {
 
 VarType Parser::ParseType(shared_ptr<Scope> scope) {
     Token Tok = getCurTok();
-//    if (Tok != tok_type_bool &&
-//        Tok != tok_type_int &&
-//        Tok != tok_type_float &&
-//        Tok != tok_type_object &&
-//        Tok != tok_type_string) {
-//        LogError("unkown var type");
-//        return VarType();
-//    }
     VarType Type = getVarType(Tok);
     if (Type.TypeID == VarTypeUnkown) {
         if (scope->getClass(TheLexer->IdentifierStr)) {
@@ -421,14 +418,13 @@ VarType Parser::ParseType(shared_ptr<Scope> scope) {
 }
 
 unique_ptr<ExprAST> Parser::ParseVarExpr(shared_ptr<Scope> scope) {
-
     VarType Type = ParseType(scope);
 
-    if (getCurTok() != tok_identifier) {
-        return LogError("expected id after type");
+    string Name;
+    if (getCurTok() == tok_identifier) {
+        Name = TheLexer->IdentifierStr;
+        getNextToken();
     }
-    string Name = TheLexer->IdentifierStr;
-    getNextToken();
 
     unique_ptr<ExprAST> Init;
     if (getCurTok() == tok_equal) {
@@ -440,7 +436,6 @@ unique_ptr<ExprAST> Parser::ParseVarExpr(shared_ptr<Scope> scope) {
     }
     SkipColon();
 
-//    auto RV = make_unique<RightValueAST>(scope, std::move(Init));
     return make_unique<VarExprAST>(scope, Type, Name, std::move(Init));
 }
 
@@ -573,7 +568,9 @@ unique_ptr<FunctionAST> Parser::ParseTopLevelExpr(shared_ptr<Scope> scope) {
 unique_ptr<MemberAST> Parser::ParseMemberAST(shared_ptr<Scope> scope) {
     Token type = getCurTok();
     // TODO support all types
-    if (type != tok_type_int && type != tok_type_bool && type != tok_type_float) {
+    if (type != tok_type_int &&
+        type != tok_type_bool &&
+        type != tok_type_float) {
         LogError("unimplemented member type");
         return nullptr;
     }
@@ -648,8 +645,28 @@ unique_ptr<ExprAST> Parser::ParseNew(shared_ptr<Scope> scope) {
     return make_unique<NewAST>(scope, Type, std::move(Size));
 }
 
+unique_ptr<ExprAST> Parser::ParseDelete(shared_ptr<Scope> scope) {
+    getNextToken();
+
+    if (getCurTok() != tok_identifier)
+        return LogError("expected variable");
+
+    auto LitLoc = TheLexer->CurLoc;
+    auto VarName = TheLexer->getIdentifier();
+    getNextToken();
+    SkipColon();
+    auto Var = make_unique<VariableExprAST>(scope, LitLoc, VarName);
+    return make_unique<DeleteAST>(scope, std::move(Var));
+}
+
+unique_ptr<ExprAST> Parser::ParseReturn(shared_ptr<Scope> scope) {
+    getNextToken();
+    auto Var = ParseExpr(scope);
+    SkipColon();
+    return make_unique<ReturnAST>(scope, std::move(Var));
+}
+
 void Parser::InitializeModuleAndPassManager() {
-    // Open a new module.
     TheModule = make_unique<Module>(Filename, LLContext);
 
     TheModule->addModuleFlag(Module::Warning, "Debug Info Version", DEBUG_METADATA_VERSION);

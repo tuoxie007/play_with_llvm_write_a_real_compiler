@@ -1,0 +1,6 @@
+
+{
+    int *ip = new int(10);
+    delete ip;
+    return 42;
+}
