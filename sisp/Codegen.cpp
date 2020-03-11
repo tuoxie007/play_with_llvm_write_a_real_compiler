@@ -6,10 +6,10 @@
 //  Copyright © 2020 Beibei Inc. All rights reserved.
 //
 
-#include "Codegen.hpp"
-#include "llvm/IR/DerivedTypes.h"
-
 #include <vector>
+#include "llvm/IR/DerivedTypes.h"
+#include "Codegen.hpp"
+#include "GlobalVars.hpp"
 
 static vector<DIScope *> LexicalBlocks;
 
@@ -522,11 +522,6 @@ Function *FunctionAST::codegen() {
 
         // Validate the generated code, checking for consistency.
         verifyFunction(*F);
-
-        if (TheParser->isJITEnabled()) {
-            // Run the optimizer on the function.
-            TheParser->RunFunction(F);
-        }
 
         return F;
     }

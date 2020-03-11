@@ -19,7 +19,7 @@
 //#define TEST "call"
 //#define TEST "var"
 //#define TEST "var_init"
-//#define TEST "var_assign"
+#define TEST "var_assign"
 //#define TEST "ifcond"
 //#define TEST "forloop"
 //#define TEST "formula"
@@ -31,7 +31,7 @@
 //#define TEST "new_int"
 //#define TEST "int_pointer"
 //#define TEST "int_indexer"
-#define TEST "int_pointer_arg"
+//#define TEST "int_pointer_arg"
 
 #ifdef TEST
 

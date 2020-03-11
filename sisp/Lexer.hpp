@@ -66,7 +66,7 @@ typedef enum Token {
 
 static string tok_tos(Token t) {
     if (t > 0) {
-        return to_string((char)t);
+        return string("<") + (char)t + ">";
     }
     switch (t) {
         case tok_eof: return "<eof>";

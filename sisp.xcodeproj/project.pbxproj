@@ -34,7 +34,6 @@
 		BF7257A524166A4700A22DEC /* int_indexer.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = int_indexer.sisp; sourceTree = "<group>"; };
 		BF7257A624172C7C00A22DEC /* int_pointer_arg.sisp */ = {isa = PBXFileReference; lastKnownFileType = text; path = int_pointer_arg.sisp; sourceTree = "<group>"; };
 		BFC3407C23F4303A0086F9EE /* sisp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sisp; sourceTree = BUILT_PRODUCTS_DIR; };
-		BFC3408C23F57EA00086F9EE /* SispJIT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SispJIT.h; sourceTree = "<group>"; };
 		BFC3408D23F63E050086F9EE /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
 		BFC3409823F911330086F9EE /* __sso_allocator */ = {isa = PBXFileReference; lastKnownFileType = text; path = __sso_allocator; sourceTree = "<group>"; };
 		BFC3409923F911330086F9EE /* bitset */ = {isa = PBXFileReference; lastKnownFileType = text; path = bitset; sourceTree = "<group>"; };
@@ -2877,7 +2876,6 @@
 			isa = PBXGroup;
 			children = (
 				BFC34C2C23FD234E0086F9EE /* tests */,
-				BFC3408C23F57EA00086F9EE /* SispJIT.h */,
 				BFC34C2023FD22930086F9EE /* Lexer.hpp */,
 				BFC34C1F23FD22930086F9EE /* Lexer.cpp */,
 				BFC34C2323FD22B90086F9EE /* Parser.hpp */,

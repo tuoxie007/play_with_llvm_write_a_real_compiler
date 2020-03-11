@@ -7,6 +7,7 @@
 //
 
 #include "Parser.hpp"
+#include "GlobalVars.hpp"
 
 using namespace llvm;
 using namespace std;
@@ -18,7 +19,7 @@ DebugInfo SispDbgInfo;
 unique_ptr<Parser> TheParser;
 
 string FunctionAST::dumpJSON() {
-    return FormatString("{`type`: `Function`, `Prototype`: %s, `Body`: %s", Proto->dumpJSON().c_str(), Body->dumpJSON().c_str());
+    return FormatString("{`type`: `Function`, `Prototype`: %s, `Body`: %s}", Proto->dumpJSON().c_str(), Body->dumpJSON().c_str());
 }
 
 ExprAST::ExprAST(shared_ptr<Scope> scope) {
@@ -165,7 +166,8 @@ unique_ptr<ExprAST> Parser::ParseExpr(shared_ptr<Scope> scope) {
             if (!Expr)
                 return nullptr;
 
-            cout << Expr->dumpJSON() << endl;
+            DLog(DLT_AST, Expr->dumpJSON());
+
             Exprs.push_back(std::move(Expr));
         }
 
@@ -605,17 +607,15 @@ unique_ptr<ClassDeclAST> Parser::ParseClassDecl(shared_ptr<Scope> scope) {
         LogError("expected '{' after class name");
         return nullptr;
     }
-
     getNextToken();
+
     vector<unique_ptr<MemberAST>> Members;
     vector<unique_ptr<FunctionAST>> Methods;
     while (getCurTok() != tok_right_bracket) {
         if (TheLexer->getNextToken(2) == tok_left_paren) {
             if (auto Method = ParseMethod(scope, Name)) {
-                cout << Method->dumpJSON() << endl;
+                DLog(DLT_AST, Method->dumpJSON());
                 Methods.push_back(std::move(Method));
-//                if (auto *FnIR = Method->codegen()) {
-//                }
             } else {
                 LogError("Parse Method failed");
             }
@@ -650,8 +650,14 @@ unique_ptr<ExprAST> Parser::ParseNew(shared_ptr<Scope> scope) {
 
 void Parser::InitializeModuleAndPassManager() {
     // Open a new module.
-    TheModule = make_unique<Module>("Sisp Demo", LLContext);
-    TheModule->setDataLayout(TheJIT->getTargetMachine().createDataLayout());
+    TheModule = make_unique<Module>(Filename, LLContext);
+
+    TheModule->addModuleFlag(Module::Warning, "Debug Info Version", DEBUG_METADATA_VERSION);
+    if (Triple(sys::getProcessTriple()).isOSDarwin())
+        TheModule->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
+
+    DBuilder = make_unique<DIBuilder>(*TheModule);
+    SispDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile(Filename, "."), "Sisp Compiler", 0, "", 0);
 
     // Create a new pass manager attached to it.
     TheFPM = make_unique<legacy::FunctionPassManager>(TheModule.get());
@@ -673,7 +679,7 @@ void Parser::InitializeModuleAndPassManager() {
 void Parser::HandleDefinition(shared_ptr<Scope> scope) {
     if (getCurTok() == tok_class) {
         if (auto ClsDecl = ParseClassDecl(scope)) {
-            cout << ClsDecl->dumpJSON() << endl;
+            DLog(DLT_AST, ClsDecl->dumpJSON());
             auto C = ClsDecl.get();
             scope->appendClass(ClsDecl->getName(), std::move(ClsDecl));
             C->codegen();
@@ -682,16 +688,8 @@ void Parser::HandleDefinition(shared_ptr<Scope> scope) {
         }
     } else if (TheLexer->getNextToken(2) == tok_left_paren) {
         if (auto FnAST = ParseDefinition(scope)) {
-            cout << FnAST->dumpJSON() << endl;
-            if (auto *FnIR = FnAST->codegen()) {
-    //            cout << "Read function definition:";
-    //            FnIR->print(outs());
-    //            cout << endl;
-                if (JITEnabled) {
-                    TheJIT->addModule(std::move(TheModule));
-                    InitializeModuleAndPassManager();
-                }
-            }
+            DLog(DLT_AST, FnAST->dumpJSON());
+            FnAST->codegen();
         } else {
             LogError("Parse Function failed");
         }
@@ -702,48 +700,21 @@ void Parser::HandleDefinition(shared_ptr<Scope> scope) {
 
 void Parser::HandleExtern(shared_ptr<Scope> scope) {
     if (auto ProtoAST = ParseExtern(scope)) {
-        cout << ProtoAST->dumpJSON() << endl;
+        DLog(DLT_AST, ProtoAST->dumpJSON());
         if (auto *FnIR = ProtoAST->codegen()) {
-//            cout << "Read extern: ";
-//            FnIR->print(outs());
-//            cout << endl;
             FunctionProtos[ProtoAST->getName()] = std::move(ProtoAST);
         }
     } else {
-        // Skip token for error recovery.
-        getNextToken();
+        LogError("parse extern failed");
     }
 }
 
 void Parser::HandleTopLevelExpression(shared_ptr<Scope> scope) {
-    // Evaluate a top-level expression into an anonymous function.
     if (auto FnAST = ParseTopLevelExpr(scope)) {
-        cout << FnAST->dumpJSON() << endl;
-        if (FnAST->codegen()) {
-            if (JITEnabled) {
-                // JIT the module containing the anonymous expression, keeping a handle so
-                // we can free it later.
-                auto H = TheJIT->addModule(std::move(TheModule));
-                InitializeModuleAndPassManager();
-
-                // Search the JIT for the __anon_expr symbol.
-                auto ExprSymbol = TheJIT->findSymbol(TopFuncName);
-                assert(ExprSymbol && "Function not found");
-
-                // Get the symbol's address and cast it to the right type (takes no
-                // arguments, returns a double) so we can call it as a native function.
-                double (*FP)() = (double (*)())(intptr_t)cantFail(ExprSymbol.getAddress());
-                cout << "JIT Evaluate:" << endl;
-                double R = FP();
-                cout << endl << "Evaluate Result:" << to_string(R) << endl;
-
-                // Delete the anonymous expression module from the JIT.
-                TheJIT->removeModule(H);
-            }
-        }
+        DLog(DLT_AST, FnAST->dumpJSON());
+        FnAST->codegen();
     } else {
-        // Skip token for error recovery.
-        getNextToken();
+        LogError("parse top level expr failed");
     }
 }
 

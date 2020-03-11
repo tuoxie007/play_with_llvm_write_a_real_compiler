@@ -9,7 +9,7 @@
 #ifndef Parser_hpp
 #define Parser_hpp
 
-#include "SispJIT.h"
+//#include "SispJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -504,6 +504,22 @@ public:
     }
 };
 
+/// FunctionAST - This class represents a function definition itself.
+class FunctionAST {
+    std::unique_ptr<PrototypeAST> Proto;
+    std::unique_ptr<ExprAST> Body;
+
+public:
+  FunctionAST(std::unique_ptr<PrototypeAST> Proto,
+              std::unique_ptr<ExprAST> Body)
+      : Proto(std::move(Proto)), Body(std::move(Body)) {}
+
+    const PrototypeAST& getProto() const;
+    const std::string& getName() const;
+    llvm::Function *codegen();
+    std::string dumpJSON();
+};
+
 class IfExprAST : public ExprAST {
     unique_ptr<ExprAST> Cond, Then, Else;
 
@@ -654,16 +670,15 @@ extern std::unique_ptr<DIBuilder> DBuilder;
 extern DebugInfo SispDbgInfo;
 
 class Parser {
-    bool JITEnabled;
     LLVMContext LLContext;
     IRBuilder<> *Builder;
     unique_ptr<Module> TheModule;
-    std::unique_ptr<llvm::orc::SispJIT> TheJIT = std::make_unique<llvm::orc::SispJIT>();;
     std::unique_ptr<legacy::FunctionPassManager> TheFPM;
     std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
     map<char, int> BinOpPrecedence;
     std::unique_ptr<Lexer> TheLexer;
     std::string TopFuncName;
+    std::string Filename;
 
     Token getCurTok() {
         return TheLexer->CurTok;
@@ -701,8 +716,8 @@ class Parser {
     unique_ptr<ExprAST> ParseNew(shared_ptr<Scope> scope);
 
 public:
-    Parser(bool jitEnabled, std::string src, std::string filename)
-    : JITEnabled(jitEnabled), TheLexer(std::make_unique<Lexer>(src)) {
+    Parser(std::string src, std::string filename)
+    : TheLexer(std::make_unique<Lexer>(src)), Filename(filename) {
 
         Builder = new IRBuilder<>(LLContext);
 
@@ -718,12 +733,6 @@ public:
 
         InitializeModuleAndPassManager();
 
-        TheModule->addModuleFlag(Module::Warning, "Debug Info Version", DEBUG_METADATA_VERSION);
-        if (Triple(sys::getProcessTriple()).isOSDarwin())
-            TheModule->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
-
-        DBuilder = std::make_unique<DIBuilder>(*TheModule);
-        SispDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile(filename, "."), "Sisp Compiler", 0, "", 0);
     }
 
     Token getNextToken();
@@ -748,7 +757,6 @@ public:
     }
     Function *getFunction(std::string Name);
     Module &getModule() const { return *TheModule.get(); };
-    const bool isJITEnabled() const { return JITEnabled; }
     LLVMContext &getContext() { return this->LLContext; };
     IRBuilder<> *getBuilder() { return Builder; };
     void RunFunction(Function *F) { TheFPM->run(*F); };

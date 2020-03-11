@@ -9,6 +9,9 @@
 #include <iostream>
 #include <fstream>
 
+#include "llvm/Support/FileSystem.h"
+
+#include "GlobalVars.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
 #include "Codegen.hpp"
@@ -17,29 +20,10 @@
 using namespace std;
 using namespace llvm;
 
-
-#ifdef _WIN32
-#define DLLEXPORT __declspec(dllexport)
-#else
-#define DLLEXPORT
-#endif
-
-extern "C" DLLEXPORT double putchard(double X) {
-    cout << (char)X;
-//    cout << "putchar [" << string(1, (char)X) << "]" << endl;
-    return 0;
-}
-
-extern "C" DLLEXPORT double printd(double X) {
-    cout << to_string(X);
-//    cout << "print [" << to_string(X) << "]" << endl;
-    return 0;
-}
-
 static int MainLoop() {
     auto scope = make_shared<Scope>();
     while (true) {
-        cout << "CurTok: " << tok_tos(TheParser->getCurToken()) << endl;
+        DLog(DLT_TOK, string("CurTok: ") + tok_tos(TheParser->getCurToken()));
         switch (TheParser->getCurToken()) {
             case tok_eof:
                 return 0;
@@ -75,9 +59,8 @@ int compile(std::string &filename, std::string &src, std::map<string, string> &o
 
     cout << src << endl;
 
-    std::string jit = opts["jit"];
-    std::string TopFuncName = opts["obj"] == "1" ? "__anon_expr" : "main";
-    TheParser = std::make_unique<Parser>(jit == "1", src, filename);
+    std::string TopFuncName = "main";
+    TheParser = std::make_unique<Parser>(src, filename);
     TheParser->SetTopFuncName(TopFuncName);
 
     MainLoop();
@@ -86,9 +69,6 @@ int compile(std::string &filename, std::string &src, std::map<string, string> &o
 
     cout << "### Module Define ###" << endl;
     TheParser->getModule().print(outs(), nullptr);
-
-    if (jit == "1")
-        return 0;
 
     InitializeAllTargetInfos();
     InitializeAllTargets();
