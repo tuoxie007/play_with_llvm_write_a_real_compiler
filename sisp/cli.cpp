@@ -25,7 +25,6 @@
 //#define TEST "formula"
 //#define TEST "compound"
 //#define TEST "link"
-//#define TEST "exec"
 //#define TEST "class_member"
 //#define TEST "class_method"
 //#define TEST "new_int"

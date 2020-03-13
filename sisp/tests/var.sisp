@@ -1,5 +1,7 @@
 
-bool x;
-x;
+{
+    bool x;
+    return x;
+}
 
 # => 0

@@ -356,6 +356,9 @@ public:
     string dumpJSON() override {
         return FormatString("{`type`: `RightValue`, `Expr`: %s}", Expr->dumpJSON().c_str());
     }
+    ExprAST *getExpr() {
+        return Expr.get();
+    }
 };
 
 class BinaryExprAST : public ExprAST {
@@ -595,10 +598,10 @@ public:
 };
 
 class DeleteAST : public ExprAST {
-    unique_ptr<VariableExprAST> Var;
+    unique_ptr<ExprAST> Var;
 
 public:
-    DeleteAST(shared_ptr<Scope> scope, unique_ptr<VariableExprAST> var)
+    DeleteAST(shared_ptr<Scope> scope, unique_ptr<ExprAST> var)
         : ExprAST(scope), Var(std::move(var)) {}
 
     Value * codegen() override;
@@ -617,7 +620,7 @@ public:
 
     Value * codegen() override;
     string dumpJSON() override {
-        return FormatString("{`type`: `Delete`, `Var`: %s}", Var->dumpJSON().c_str());
+        return FormatString("{`type`: `Return`, `Var`: %s}", Var->dumpJSON().c_str());
     }
 };
 

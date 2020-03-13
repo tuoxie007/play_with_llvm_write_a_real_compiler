@@ -1,12 +1,9 @@
-extern int printd(int x);
-
 {
     int x = 0;
-    for (int i = 1; i < 5; 2) {
-        x = x + 1;
-        printd(x);
+    for (int i = 0; i < 42; 2) {
+        x = x + 2;
     }
-    x;
+    return x;
 }
 
-# => 2
+# => 42

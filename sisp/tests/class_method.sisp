@@ -1,12 +1,12 @@
 class Boy {
   int age;
-  int tall;
+  float tall;
 
-  int getTall(int x) {
-    this.tall;
+  float getTall() {
+    return this.tall;
   }
 
-  int setTall(int val) {
+  void setTall(float val) {
     this.tall = val;
   }
 }
@@ -14,6 +14,6 @@ class Boy {
 int main()
 {
   Boy b = Boy();
-  b.setTall(180);
-  b.tall;
+  b.setTall(42.0);
+  return b.getTall();
 }

@@ -88,6 +88,14 @@ Token Lexer::getNextToken(unsigned ForwardStep) {
 
         if (isdigit(LastChar) || LastChar == tok_dot) {
             string NumStr;
+//            if (LastChar == tok_sub) {
+//                NumStr += LastChar;
+//                Token x = GetChar();
+//                while (x == tok_space) {
+//                    x = GetChar();
+//                }
+//                LastChar = x;
+//            }
             do {
                 NumStr += LastChar;
                 LastChar = GetChar();

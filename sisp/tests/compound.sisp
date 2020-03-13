@@ -1,14 +1,14 @@
 
 int test(int x) {
-    if (x < 5) {
+    if (x > 5) {
         x = x + 1;
         x = x + 1;
     } else {
         x = x - 1;
     }
-    x;
+    return x;
 }
 
-test(40);
+return test(40);
 
 # => 42

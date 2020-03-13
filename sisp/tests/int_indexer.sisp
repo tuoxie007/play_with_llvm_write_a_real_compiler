@@ -3,5 +3,5 @@ int main() {
     int *ip = new int(2);
     ip[0] = 12;
     ip[1] = 30;
-    ip[0] + ip[1];
+    return ip[0] + ip[1];
 }

@@ -1,4 +1,6 @@
 
 
-int *ip = new int(10);
-
+{
+    int *ip = new int(10);
+    return 42;
+}

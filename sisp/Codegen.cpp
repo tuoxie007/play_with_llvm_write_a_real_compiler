@@ -85,21 +85,18 @@ Value *RightValueAST::codegen() {
 Value *BinaryExprAST::codegen() {
     SispDbgInfo.emitLocation(this);
 
-    if (Op == tok_equal) {
-        auto LHSE = static_cast<VariableExprAST *>(LHS.get());
-        if (!LHSE)
-            return LogErrorV("destination of '=' must be a variable");
+    if (Op == tok_equal) { // assign
 
+        auto LHSRV = static_cast<RightValueAST *>(LHS.get());
+
+        auto LD = LHSRV->getExpr()->codegen();
         auto Val = RHS->codegen();
         if (!Val)
-            return nullptr;
+            return LogErrorV("RHS codegen return null");
 
-        auto Variable = scope->getVal(LHSE->getName());
-        if (!Variable)
-            return LogErrorV("Unkown variable name");
+        getBuilder()->CreateStore(Val, LD);
 
-        getBuilder()->CreateStore(Val, Variable);
-        return Val;
+        return getBuilder()->CreateLoad(LD);
     }
 
     auto L = LHS->codegen();
@@ -159,6 +156,7 @@ Value *BinaryExprAST::codegen() {
 
 Value *MemberAccessAST::codegen() {
     auto V = Var->codegen();
+    V = getBuilder()->CreateLoad(V);
     string StructName;
     if (V->getType()->isPointerTy() && V->getType()->getPointerElementType()->isStructTy()) {
         StructName = V->getType()->getPointerElementType()->getStructName();
@@ -187,6 +185,7 @@ Value *MemberAccessAST::codegen() {
 
 Value *IndexerAST::codegen() {
     auto V = Var->codegen();
+    V = getBuilder()->CreateLoad(V);
     if (V->getType()->isPointerTy()) {
 
         auto Idx = Index->codegen();
@@ -199,7 +198,7 @@ Value *IndexerAST::codegen() {
             if (!RVal)
                 return nullptr;
             getBuilder()->CreateStore(RVal, ElePtr);
-            return RVal;
+//            return RVal;
         }
         return getBuilder()->CreateLoad(EleTy, ElePtr, "idxVal");
     } else {
@@ -224,11 +223,49 @@ Value *DeleteAST::codegen() {
 }
 
 Value *ReturnAST::codegen() {
-    return getBuilder()->CreateRet(Var->codegen());
+    auto F = getBuilder()->GetInsertBlock()->getParent();
+    auto RT = F->getReturnType();
+    if (!Var && RT->isVoidTy())
+        return getBuilder()->CreateRetVoid();
+
+    auto RV = Var->codegen();
+    switch (RT->getTypeID()) {
+        case llvm::Type::IntegerTyID:
+            if (RV->getType()->isIntegerTy()) {
+                if (RV->getType()->getIntegerBitWidth() == RT->getIntegerBitWidth()) {
+                    break;
+                }
+                RV = getBuilder()->CreateZExtOrTrunc(RV, RT);
+                break;
+            }
+            if (RV->getType()->isDoubleTy()) {
+                RV = getBuilder()->CreateFPToSI(RV, RT);
+                break;
+            }
+            return LogErrorV("expected int value to return");
+        case llvm::Type::DoubleTyID:
+            if (RV->getType()->isDoubleTy()) {
+                break;
+            }
+            if (RV->getType()->isIntegerTy()) {
+                RV = getBuilder()->CreateSIToFP(RV, RT);
+                break;
+            }
+            return LogErrorV("expected float value to return");
+        case llvm::Type::PointerTyID:
+            RV = getBuilder()->CreateBitCast(RV, RT);
+            break;
+        case llvm::Type::VoidTyID:
+            return LogErrorV("unexpected return type");
+        default:
+            return LogErrorV("unexpected return type");
+    }
+    return getBuilder()->CreateRet(RV);
 }
 
 Value *IfExprAST::codegen() {
     SispDbgInfo.emitLocation(this);
+
     auto CondV = Cond->codegen();
     if (!CondV)
         return nullptr;
@@ -238,15 +275,13 @@ Value *IfExprAST::codegen() {
 
     auto ThenBlock = BasicBlock::Create(getContext(), "then", F);
     auto ElseBlock = BasicBlock::Create(getContext(), "else");
-    auto MergeBlock = BasicBlock::Create(getContext(), "ifcont");
+    auto MergeBlock = BasicBlock::Create(getContext(), "fi");
 
     getBuilder()->CreateCondBr(CondV, ThenBlock, ElseBlock);
 
     getBuilder()->SetInsertPoint(ThenBlock);
 
-    auto ThenV = Then->codegen();
-    if (!ThenV)
-        return nullptr;
+    Then->codegen();
 
     getBuilder()->CreateBr(MergeBlock);
 
@@ -255,9 +290,7 @@ Value *IfExprAST::codegen() {
     F->getBasicBlockList().push_back(ElseBlock);
     getBuilder()->SetInsertPoint(ElseBlock);
 
-    auto ElseV = Else->codegen();
-    if (!ElseV)
-        return nullptr;
+    Else->codegen();
 
     getBuilder()->CreateBr(MergeBlock);
 
@@ -266,12 +299,14 @@ Value *IfExprAST::codegen() {
     F->getBasicBlockList().push_back(MergeBlock);
     getBuilder()->SetInsertPoint(MergeBlock);
 
-    auto PN = getBuilder()->CreatePHI(ThenV->getType(), 2, "iftmp");
+    return nullptr;
 
-    PN->addIncoming(ThenV, ThenBlock);
-    PN->addIncoming(ElseV, ElseBlock);
+//    auto PN = getBuilder()->CreatePHI(ThenV->getType(), 2, "iftmp");
+//
+//    PN->addIncoming(ThenV, ThenBlock);
+//    PN->addIncoming(ElseV, ElseBlock);
 
-    return PN;
+//    return PN;
 }
 
 Value *ForExprAST::codegen() {
@@ -303,8 +338,7 @@ Value *ForExprAST::codegen() {
 
     // %loop:
     getBuilder()->SetInsertPoint(LoopBlock);
-    if (!Body->codegen())
-        return nullptr;
+    Body->codegen();
 
     Value *StepVal = nullptr;
     if (Step) {
@@ -334,8 +368,8 @@ Value *VarExprAST::codegen() {
     Value *InitVal;
     if (Init) {
         InitVal = Init->codegen();
-        scope->setVal(Name, InitVal);
-        return InitVal;
+//        scope->setVal(Name, InitVal);
+//        return InitVal;
     } else {
         InitVal = Type.getDefaultValue(getContext());
     }
@@ -352,6 +386,21 @@ Value *UnaryExprAST::codegen() {
     auto OperandV = Operand->codegen();
     if (!OperandV)
         return nullptr;
+
+    switch (Opcode) {
+        case tok_sub:
+            {
+                auto V = Operand->codegen();
+                if (V->getType()->isIntegerTy())
+                    return getBuilder()->CreateNeg(V);
+                return getBuilder()->CreateFNeg(V);
+            }
+        case tok_add:
+            return Operand->codegen();
+
+        default:
+            break;
+    }
 
     auto F = TheParser->getFunction(string("unary") + Opcode);
     if (!F)
@@ -411,6 +460,7 @@ Value *CallExprAST::codegen() {
 
 Value * MethodCallAST::codegen() {
     auto V = Var->codegen();
+    V = getBuilder()->CreateLoad(V);
     string StructName = V->getType()->getPointerElementType()->getStructName();
     auto PrefixLen = string("class.").length();
     string ClassName = StructName.substr(PrefixLen, StructName.length() - PrefixLen);
@@ -506,14 +556,19 @@ Function *FunctionAST::codegen() {
                                 DebugLoc::get(LineNo, 0, SP),
                                 getBuilder()->GetInsertBlock());
 
+        // arg type
         getBuilder()->CreateStore(&Arg, Alloca);
-        auto ArgLocal = getBuilder()->CreateLoad(Alloca);
-        Body->getScope()->setVal(Arg.getName(), ArgLocal);
+//        auto ArgLocal = getBuilder()->CreateLoad(Alloca);
+        Body->getScope()->setVal(Arg.getName(), Alloca);
     }
 
     SispDbgInfo.emitLocation(Body.get());
 
     Body->codegen();
+
+    if (F->getReturnType()->isVoidTy()) {
+        getBuilder()->CreateRetVoid();
+    }
 
     SispDbgInfo.LexicalBlocks.pop_back();
 

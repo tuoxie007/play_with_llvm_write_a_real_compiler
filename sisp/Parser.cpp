@@ -80,8 +80,10 @@ std::unique_ptr<ExprAST> Parser::ParseIdentifierExpr(shared_ptr<Scope> scope) {
     std::vector<std::unique_ptr<ExprAST>> Args;
     if (getCurTok() != tok_right_paren) {
         while (true) {
-            if (auto Arg = ParseExpr(scope))
-                Args.push_back(std::move(Arg));
+            if (auto Arg = ParseExpr(scope)) {
+                auto ArgV = make_unique<RightValueAST>(scope, std::move(Arg));
+                Args.push_back(std::move(ArgV));
+            }
             else
                 return nullptr;
 
@@ -230,8 +232,10 @@ unique_ptr<ExprAST> Parser::ParseBinOpRHS(shared_ptr<Scope> scope,
 //                Args.push_back(std::move(LHS));
                 if (getCurTok() != tok_right_paren) {
                     while (true) {
-                        if (auto Arg = ParseExpr(scope))
-                            Args.push_back(std::move(Arg));
+                        if (auto Arg = ParseExpr(scope)) {
+                            auto ArgV = make_unique<RightValueAST>(scope, std::move(Arg));
+                            Args.push_back(std::move(ArgV));
+                        }
                         else
                             return nullptr;
 
@@ -243,11 +247,11 @@ unique_ptr<ExprAST> Parser::ParseBinOpRHS(shared_ptr<Scope> scope,
 
                         getNextToken();
                     }
-
-                    getNextToken();
-
-                    return make_unique<MethodCallAST>(scope, std::move(LHS), MemName, std::move(Args));
                 }
+
+                getNextToken();
+
+                return make_unique<MethodCallAST>(scope, std::move(LHS), MemName, std::move(Args));
             }
 
             SkipColon();
@@ -271,7 +275,10 @@ unique_ptr<ExprAST> Parser::ParseBinOpRHS(shared_ptr<Scope> scope,
             }
         }
 
-        LHS = make_unique<BinaryExprAST>(scope, BinLoc, BinOp, std::move(LHS), std::move(RHS));
+        auto LV = make_unique<RightValueAST>(scope, std::move(LHS));
+        auto RV = make_unique<RightValueAST>(scope, std::move(RHS));
+
+        LHS = make_unique<BinaryExprAST>(scope, BinLoc, BinOp, std::move(LV), std::move(RV));
     }
 }
 
@@ -656,14 +663,16 @@ unique_ptr<ExprAST> Parser::ParseDelete(shared_ptr<Scope> scope) {
     getNextToken();
     SkipColon();
     auto Var = make_unique<VariableExprAST>(scope, LitLoc, VarName);
-    return make_unique<DeleteAST>(scope, std::move(Var));
+    auto RVar = make_unique<RightValueAST>(scope, std::move(Var));
+    return make_unique<DeleteAST>(scope, std::move(RVar));
 }
 
 unique_ptr<ExprAST> Parser::ParseReturn(shared_ptr<Scope> scope) {
     getNextToken();
     auto Var = ParseExpr(scope);
     SkipColon();
-    return make_unique<ReturnAST>(scope, std::move(Var));
+    auto RV = make_unique<RightValueAST>(scope, std::move(Var));
+    return make_unique<ReturnAST>(scope, std::move(RV));
 }
 
 void Parser::InitializeModuleAndPassManager() {

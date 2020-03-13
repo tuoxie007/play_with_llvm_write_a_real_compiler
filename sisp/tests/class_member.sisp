@@ -1,13 +1,12 @@
-extern int malloc(int s);
 
 class Boy {
   int age;
-  int tall;
+  float tall;
 }
 
-int boyTall()
+int main()
 {
   Boy b = Boy();
-  b.tall = 180;
-  b.tall;
+  b.tall = 42.0;
+  return b.tall;
 }

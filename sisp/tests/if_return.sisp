@@ -1,0 +1,9 @@
+
+{
+    if (2 < 1)
+        return 24;
+    else
+        return 42;
+}
+
+# => 42

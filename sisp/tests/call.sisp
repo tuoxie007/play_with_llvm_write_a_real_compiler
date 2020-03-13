@@ -1,13 +1,15 @@
 
 float sum(float x, float y) {
-    x + y;
+    return x + y;
 }
 
 int sub(int x, int y) {
-    x - y;
+    return x - y;
 }
 
-sub(56, 45);
-sum(12.0, 21.0);
+{
+    sum(40.0, 2.0);
+    return sub(40, -2);
+}
 
-# => 33
+# => 42

@@ -1,6 +1,6 @@
 
-extern int printd(int x);
+extern int putchar(int x);
 
-printd(42);
+return putchar(42);
 
 # => no error
