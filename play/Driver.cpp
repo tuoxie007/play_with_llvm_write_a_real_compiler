@@ -68,16 +68,14 @@ int compile(std::string &filename, std::string &src, std::map<string, string> &o
 
     MainLoop();
 
-    DBuilder->finalize();
-
     cout << "### Module Define ###" << endl;
     TheParser->getModule().print(outs(), nullptr);
 
-    InitializeAllTargetInfos();
-    InitializeAllTargets();
-    InitializeAllTargetMCs();
-    InitializeAllAsmParsers();
-    InitializeAllAsmPrinters();
+    LLVMInitializeX86TargetInfo();
+    LLVMInitializeX86Target();
+    LLVMInitializeX86TargetMC();
+    LLVMInitializeX86AsmParser();
+    LLVMInitializeX86AsmPrinter();
 
     auto TargetTriple = sys::getDefaultTargetTriple();
     TheParser->getModule().setTargetTriple(TargetTriple);

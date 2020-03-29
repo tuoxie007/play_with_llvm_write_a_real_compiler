@@ -690,19 +690,6 @@ static Value *LogErrorV(std::string Str) {
     return nullptr;
 }
 
-class DebugInfo {
-public:
-    DebugInfo() {};
-    DICompileUnit *TheCU;
-    DIType *DblTy;
-    std::vector<DIScope *> LexicalBlocks;
-    DIType *getDoubleTy();
-    void emitLocation(ExprAST *AST);
-};
-
-extern std::unique_ptr<DIBuilder> DBuilder;
-extern DebugInfo PlayDbgInfo;
-
 class Parser {
     LLVMContext LLContext;
     IRBuilder<> *Builder;

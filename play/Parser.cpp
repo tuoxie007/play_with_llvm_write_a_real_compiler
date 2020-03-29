@@ -14,8 +14,6 @@ using namespace std;
 
 #define make_unique std::make_unique
 
-std::unique_ptr<DIBuilder> DBuilder;
-DebugInfo PlayDbgInfo;
 unique_ptr<Parser> TheParser;
 
 string FunctionAST::dumpJSON() {
@@ -681,9 +679,6 @@ void Parser::InitializeModuleAndPassManager() {
     TheModule->addModuleFlag(Module::Warning, "Debug Info Version", DEBUG_METADATA_VERSION);
     if (Triple(sys::getProcessTriple()).isOSDarwin())
         TheModule->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
-
-    DBuilder = make_unique<DIBuilder>(*TheModule);
-    PlayDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile(Filename, "."), "Play Compiler", 0, "", 0);
 
     // Create a new pass manager attached to it.
     TheFPM = make_unique<legacy::FunctionPassManager>(TheModule.get());

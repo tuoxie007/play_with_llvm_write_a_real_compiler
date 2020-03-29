@@ -13,51 +13,15 @@
 
 static vector<DIScope *> LexicalBlocks;
 
-DIType *DebugInfo::getDoubleTy() {
-    if (DblTy)
-        return DblTy;
-
-    DblTy = DBuilder->createBasicType("double", 64, dwarf::DW_ATE_float);
-    return DblTy;
-}
-
-void DebugInfo::emitLocation(ExprAST *AST) {
-    if (!AST)
-        return getBuilder()->SetCurrentDebugLocation(DebugLoc());
-
-    DIScope *Scope;
-    if (LexicalBlocks.empty())
-        Scope = TheCU;
-    else
-        Scope = LexicalBlocks.back();
-
-    getBuilder()->SetCurrentDebugLocation(DebugLoc::get(AST->getLine(), AST->getCol(), Scope));
-}
-
-static DISubroutineType *CreateFunctionType(unsigned long NumArgs, DIFile *Unit) {
-  SmallVector<Metadata *, 8> EltTys;
-  DIType *DblTy = PlayDbgInfo.getDoubleTy();
-
-  // Add the result type.
-  EltTys.push_back(DblTy);
-
-  for (unsigned long i = 0, e = NumArgs; i != e; ++i)
-      EltTys.push_back(DblTy);
-
-  return DBuilder->createSubroutineType(DBuilder->getOrCreateTypeArray(EltTys));
-}
-
 const std::string& FunctionAST::getName() const {
     return Proto->getName();
 }
 
 Value *IntegerLiteralAST::codegen() {
-    PlayDbgInfo.emitLocation(this);
     return ConstantInt::get(getContext(), APInt(64, Val));
 }
 
 Value *FloatLiteralAST::codegen() {
-    PlayDbgInfo.emitLocation(this);
     return ConstantFP::get(getContext(), APFloat(Val));
 }
 
@@ -67,7 +31,6 @@ Value *VariableExprAST::codegen() {
         LogError("Unkown variable name");
 
 //    cout << "VariableExprAST::codegen()" << V << endl;
-    PlayDbgInfo.emitLocation(this);
 
     // var
     return V;
@@ -83,8 +46,6 @@ Value *RightValueAST::codegen() {
 }
 
 Value *BinaryExprAST::codegen() {
-    PlayDbgInfo.emitLocation(this);
-
     if (Op == tok_equal) { // assign
 
         auto LHSRV = static_cast<RightValueAST *>(LHS.get());
@@ -264,8 +225,6 @@ Value *ReturnAST::codegen() {
 }
 
 Value *IfExprAST::codegen() {
-    PlayDbgInfo.emitLocation(this);
-
     auto CondV = Cond->codegen();
     if (!CondV)
         return nullptr;
@@ -311,8 +270,6 @@ Value *IfExprAST::codegen() {
 
 Value *ForExprAST::codegen() {
     auto F = getBuilder()->GetInsertBlock()->getParent();
-
-    PlayDbgInfo.emitLocation(this);
 
     auto StartVal = Var->codegen();
     if (!StartVal)
@@ -406,7 +363,6 @@ Value *UnaryExprAST::codegen() {
     if (!F)
         return LogErrorV("Unkown unary operator");
 
-    PlayDbgInfo.emitLocation(this);
     return getBuilder()->CreateCall(F, OperandV, "unop");
 }
 
@@ -420,7 +376,6 @@ Value *CompoundExprAST::codegen() {
 }
 
 Value *CallExprAST::codegen() {
-    PlayDbgInfo.emitLocation(this);
     // Look up the name in the global module table.
     Function *CalleeF = TheParser->getFunction(Callee);
     if (!CalleeF) {
@@ -515,46 +470,23 @@ Function *FunctionAST::codegen() {
     auto BB = BasicBlock::Create(getContext(), "entry", F);
     getBuilder()->SetInsertPoint(BB);
 
-    // Create a subprogram DIE for this function.
-    DIFile *Unit = DBuilder->createFile(PlayDbgInfo.TheCU->getFilename(),
-                                        PlayDbgInfo.TheCU->getDirectory());
-    DIScope *FContext = Unit;
-    unsigned LineNo = P.getLine();
-    unsigned ScopeLine = LineNo;
-    DISubprogram *SP =
-    DBuilder->createFunction(FContext,
-                             P.getName(),
-                             StringRef(),
-                             Unit,
-                             LineNo,
-                             CreateFunctionType(F->arg_size(), Unit),
-                             ScopeLine,
-                             DINode::FlagPrototyped,
-                             DISubprogram::SPFlagDefinition);
-    F->setSubprogram(SP);
-
-    // Push the current scope.
-    PlayDbgInfo.LexicalBlocks.push_back(SP);
-
     // Unset the location for the prologue emission (leading instructions with no
     // location in a function are considered part of the prologue and the debugger
     // will run past them when breaking on a function)
-    PlayDbgInfo.emitLocation(nullptr);
 
-    unsigned ArgIdx = 0;
     for (auto &Arg : F->args()) {
         auto ArgTy = Arg.getType();
 //        Body->getScope()->setVal(Arg.getName(), &Arg);
         auto Alloca = Parser::CreateEntryBlockAlloca(F, ArgTy, Arg.getName());
 
         // Create a debug descriptor for the variable.
-        DILocalVariable *D = DBuilder->createParameterVariable(
-            SP, Arg.getName(), ++ArgIdx, Unit, LineNo, PlayDbgInfo.getDoubleTy(),
-            true);
+//        DILocalVariable *D = DBuilder->createParameterVariable(
+//            SP, Arg.getName(), ++ArgIdx, Unit, LineNo, PlayDbgInfo.getDoubleTy(),
+//            true);
 
-        DBuilder->insertDeclare(Alloca, D, DBuilder->createExpression(),
-                                DebugLoc::get(LineNo, 0, SP),
-                                getBuilder()->GetInsertBlock());
+//        DBuilder->insertDeclare(Alloca, D, DBuilder->createExpression(),
+//                                DebugLoc::get(LineNo, 0, SP),
+//                                getBuilder()->GetInsertBlock());
 
         // arg type
         getBuilder()->CreateStore(&Arg, Alloca);
@@ -562,15 +494,11 @@ Function *FunctionAST::codegen() {
         Body->getScope()->setVal(Arg.getName(), Alloca);
     }
 
-    PlayDbgInfo.emitLocation(Body.get());
-
     Body->codegen();
 
     if (F->getReturnType()->isVoidTy()) {
         getBuilder()->CreateRetVoid();
     }
-
-    PlayDbgInfo.LexicalBlocks.pop_back();
 
     verifyFunction(*F);
 
