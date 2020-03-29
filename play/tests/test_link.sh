@@ -1,10 +1,10 @@
 #!/bin/sh
 
 #  test_link.sh
-#  sisp
+#  play
 #
-#  Created by 徐可 on 2020/2/27.
-#  Copyright © 2020 Beibei Inc. All rights reserved.
+#  Created by Jason Hsu on 2020/2/27.
+#  Copyright © 2020 Jason Hsu<tuoxie007@gmail.com>. All rights reserved.
 
 xcrun cc call_triple.c link.o
 ./a.out

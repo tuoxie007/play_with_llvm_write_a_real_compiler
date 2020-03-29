@@ -1,9 +1,9 @@
 //
 //  Lexer.hpp
-//  sisp
+//  play
 //
-//  Created by 徐可 on 2020/2/19.
-//  Copyright © 2020 Beibei Inc. All rights reserved.
+//  Created by Jason Hsu on 2020/2/19.
+//  Copyright © 2020 Jason Hsu<tuoxie007@gmail.com>. All rights reserved.
 //
 
 #ifndef Lexer_hpp

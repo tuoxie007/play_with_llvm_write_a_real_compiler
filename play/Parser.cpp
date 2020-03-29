@@ -1,9 +1,9 @@
 //
 //  Parser.cpp
-//  sisp
+//  play
 //
-//  Created by 徐可 on 2020/2/19.
-//  Copyright © 2020 Beibei Inc. All rights reserved.
+//  Created by Jason Hsu on 2020/2/19.
+//  Copyright © 2020 Jason Hsu<tuoxie007@gmail.com>. All rights reserved.
 //
 
 #include "Parser.hpp"
@@ -15,7 +15,7 @@ using namespace std;
 #define make_unique std::make_unique
 
 std::unique_ptr<DIBuilder> DBuilder;
-DebugInfo SispDbgInfo;
+DebugInfo PlayDbgInfo;
 unique_ptr<Parser> TheParser;
 
 string FunctionAST::dumpJSON() {
@@ -683,7 +683,7 @@ void Parser::InitializeModuleAndPassManager() {
         TheModule->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
 
     DBuilder = make_unique<DIBuilder>(*TheModule);
-    SispDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile(Filename, "."), "Sisp Compiler", 0, "", 0);
+    PlayDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C, DBuilder->createFile(Filename, "."), "Play Compiler", 0, "", 0);
 
     // Create a new pass manager attached to it.
     TheFPM = make_unique<legacy::FunctionPassManager>(TheModule.get());

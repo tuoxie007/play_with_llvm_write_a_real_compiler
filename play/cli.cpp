@@ -1,9 +1,9 @@
 //
 //  cli.cpp
-//  sisp
+//  play
 //
-//  Created by 徐可 on 2020/2/20.
-//  Copyright © 2020 Beibei Inc. All rights reserved.
+//  Created by Jason Hsu on 2020/2/20.
+//  Copyright © 2020 Jason Hsu<tuoxie007@gmail.com>. All rights reserved.
 //
 
 #include "Driver.hpp"
@@ -37,11 +37,11 @@
 
 int main(int argc, const char * argv[]) {
 
-    std::string testsDir = std::string(PROJECT_DIR) + "/sisp/tests";
+    std::string testsDir = std::string(PROJECT_DIR) + "/play/tests";
     for (const auto & entry : std::__fs::filesystem::directory_iterator(testsDir)) {
 
         auto filename = entry.path().filename();
-        if (filename != std::string(TEST) + ".sisp") continue;
+        if (filename != std::string(TEST) + ".play") continue;
 
         std::cout << "📟 start building " << entry.path().filename() << std::endl;
 

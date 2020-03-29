@@ -1,15 +1,14 @@
 //
 //  Parser.hpp
-//  sisp
+//  play
 //
-//  Created by 徐可 on 2020/2/19.
-//  Copyright © 2020 Beibei Inc. All rights reserved.
+//  Created by Jason Hsu on 2020/2/19.
+//  Copyright © 2020 Jason Hsu<tuoxie007@gmail.com>. All rights reserved.
 //
 
 #ifndef Parser_hpp
 #define Parser_hpp
 
-//#include "SispJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -702,7 +701,7 @@ public:
 };
 
 extern std::unique_ptr<DIBuilder> DBuilder;
-extern DebugInfo SispDbgInfo;
+extern DebugInfo PlayDbgInfo;
 
 class Parser {
     LLVMContext LLContext;

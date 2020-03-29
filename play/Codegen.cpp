@@ -1,9 +1,9 @@
 //
 //  Codegen.cpp
-//  sisp
+//  play
 //
-//  Created by 徐可 on 2020/2/19.
-//  Copyright © 2020 Beibei Inc. All rights reserved.
+//  Created by Jason Hsu on 2020/2/19.
+//  Copyright © 2020 Jason Hsu<tuoxie007@gmail.com>. All rights reserved.
 //
 
 #include <vector>
@@ -36,7 +36,7 @@ void DebugInfo::emitLocation(ExprAST *AST) {
 
 static DISubroutineType *CreateFunctionType(unsigned long NumArgs, DIFile *Unit) {
   SmallVector<Metadata *, 8> EltTys;
-  DIType *DblTy = SispDbgInfo.getDoubleTy();
+  DIType *DblTy = PlayDbgInfo.getDoubleTy();
 
   // Add the result type.
   EltTys.push_back(DblTy);
@@ -52,12 +52,12 @@ const std::string& FunctionAST::getName() const {
 }
 
 Value *IntegerLiteralAST::codegen() {
-    SispDbgInfo.emitLocation(this);
+    PlayDbgInfo.emitLocation(this);
     return ConstantInt::get(getContext(), APInt(64, Val));
 }
 
 Value *FloatLiteralAST::codegen() {
-    SispDbgInfo.emitLocation(this);
+    PlayDbgInfo.emitLocation(this);
     return ConstantFP::get(getContext(), APFloat(Val));
 }
 
@@ -67,7 +67,7 @@ Value *VariableExprAST::codegen() {
         LogError("Unkown variable name");
 
 //    cout << "VariableExprAST::codegen()" << V << endl;
-    SispDbgInfo.emitLocation(this);
+    PlayDbgInfo.emitLocation(this);
 
     // var
     return V;
@@ -83,7 +83,7 @@ Value *RightValueAST::codegen() {
 }
 
 Value *BinaryExprAST::codegen() {
-    SispDbgInfo.emitLocation(this);
+    PlayDbgInfo.emitLocation(this);
 
     if (Op == tok_equal) { // assign
 
@@ -264,7 +264,7 @@ Value *ReturnAST::codegen() {
 }
 
 Value *IfExprAST::codegen() {
-    SispDbgInfo.emitLocation(this);
+    PlayDbgInfo.emitLocation(this);
 
     auto CondV = Cond->codegen();
     if (!CondV)
@@ -312,7 +312,7 @@ Value *IfExprAST::codegen() {
 Value *ForExprAST::codegen() {
     auto F = getBuilder()->GetInsertBlock()->getParent();
 
-    SispDbgInfo.emitLocation(this);
+    PlayDbgInfo.emitLocation(this);
 
     auto StartVal = Var->codegen();
     if (!StartVal)
@@ -406,7 +406,7 @@ Value *UnaryExprAST::codegen() {
     if (!F)
         return LogErrorV("Unkown unary operator");
 
-    SispDbgInfo.emitLocation(this);
+    PlayDbgInfo.emitLocation(this);
     return getBuilder()->CreateCall(F, OperandV, "unop");
 }
 
@@ -420,7 +420,7 @@ Value *CompoundExprAST::codegen() {
 }
 
 Value *CallExprAST::codegen() {
-    SispDbgInfo.emitLocation(this);
+    PlayDbgInfo.emitLocation(this);
     // Look up the name in the global module table.
     Function *CalleeF = TheParser->getFunction(Callee);
     if (!CalleeF) {
@@ -516,8 +516,8 @@ Function *FunctionAST::codegen() {
     getBuilder()->SetInsertPoint(BB);
 
     // Create a subprogram DIE for this function.
-    DIFile *Unit = DBuilder->createFile(SispDbgInfo.TheCU->getFilename(),
-                                        SispDbgInfo.TheCU->getDirectory());
+    DIFile *Unit = DBuilder->createFile(PlayDbgInfo.TheCU->getFilename(),
+                                        PlayDbgInfo.TheCU->getDirectory());
     DIScope *FContext = Unit;
     unsigned LineNo = P.getLine();
     unsigned ScopeLine = LineNo;
@@ -534,12 +534,12 @@ Function *FunctionAST::codegen() {
     F->setSubprogram(SP);
 
     // Push the current scope.
-    SispDbgInfo.LexicalBlocks.push_back(SP);
+    PlayDbgInfo.LexicalBlocks.push_back(SP);
 
     // Unset the location for the prologue emission (leading instructions with no
     // location in a function are considered part of the prologue and the debugger
     // will run past them when breaking on a function)
-    SispDbgInfo.emitLocation(nullptr);
+    PlayDbgInfo.emitLocation(nullptr);
 
     unsigned ArgIdx = 0;
     for (auto &Arg : F->args()) {
@@ -549,7 +549,7 @@ Function *FunctionAST::codegen() {
 
         // Create a debug descriptor for the variable.
         DILocalVariable *D = DBuilder->createParameterVariable(
-            SP, Arg.getName(), ++ArgIdx, Unit, LineNo, SispDbgInfo.getDoubleTy(),
+            SP, Arg.getName(), ++ArgIdx, Unit, LineNo, PlayDbgInfo.getDoubleTy(),
             true);
 
         DBuilder->insertDeclare(Alloca, D, DBuilder->createExpression(),
@@ -562,7 +562,7 @@ Function *FunctionAST::codegen() {
         Body->getScope()->setVal(Arg.getName(), Alloca);
     }
 
-    SispDbgInfo.emitLocation(Body.get());
+    PlayDbgInfo.emitLocation(Body.get());
 
     Body->codegen();
 
@@ -570,7 +570,7 @@ Function *FunctionAST::codegen() {
         getBuilder()->CreateRetVoid();
     }
 
-    SispDbgInfo.LexicalBlocks.pop_back();
+    PlayDbgInfo.LexicalBlocks.pop_back();
 
     verifyFunction(*F);
 
