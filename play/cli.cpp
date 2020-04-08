@@ -16,6 +16,10 @@
 //#define TEST "extern"
 //#define TEST "constant"
 //#define TEST "math"
+//#define TEST "less"
+//#define TEST "less_float"
+//#define TEST "greater"
+#define TEST "greater_float"
 //#define TEST "call"
 //#define TEST "var"
 //#define TEST "var_init"
@@ -31,7 +35,7 @@
 //#define TEST "int_pointer"
 //#define TEST "int_indexer"
 //#define TEST "int_pointer_arg"
-#define TEST "delete_ptr"
+//#define TEST "delete_ptr"
 
 #ifdef TEST
 

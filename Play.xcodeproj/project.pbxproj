@@ -35,6 +35,10 @@
 		BF7257A624172C7C00A22DEC /* int_pointer_arg.play */ = {isa = PBXFileReference; lastKnownFileType = text; path = int_pointer_arg.play; sourceTree = "<group>"; };
 		BF7257A72418FA0D00A22DEC /* delete_ptr.play */ = {isa = PBXFileReference; lastKnownFileType = text; path = delete_ptr.play; sourceTree = "<group>"; };
 		BF7257A8241B2B3500A22DEC /* if_return.play */ = {isa = PBXFileReference; lastKnownFileType = text; path = if_return.play; sourceTree = "<group>"; };
+		BF8A7AA1243D80DB00072563 /* less.play */ = {isa = PBXFileReference; lastKnownFileType = text; path = less.play; sourceTree = "<group>"; };
+		BF8A7AA2243D813A00072563 /* less_float.play */ = {isa = PBXFileReference; lastKnownFileType = text; path = less_float.play; sourceTree = "<group>"; };
+		BF8A7AA3243D816500072563 /* greater.play */ = {isa = PBXFileReference; lastKnownFileType = text; path = greater.play; sourceTree = "<group>"; };
+		BF8A7AA4243D817C00072563 /* greater_float.play */ = {isa = PBXFileReference; lastKnownFileType = text; path = greater_float.play; sourceTree = "<group>"; };
 		BFC3407C23F4303A0086F9EE /* Play */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Play; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFC3408D23F63E050086F9EE /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
 		BFC3409823F911330086F9EE /* __sso_allocator */ = {isa = PBXFileReference; lastKnownFileType = text; path = __sso_allocator; sourceTree = "<group>"; };
@@ -6976,6 +6980,10 @@
 				BFC34C2E23FD254D0086F9EE /* extern.play */,
 				BFC34C2F23FD25B70086F9EE /* constant.play */,
 				BFC34C3023FD25F50086F9EE /* math.play */,
+				BF8A7AA1243D80DB00072563 /* less.play */,
+				BF8A7AA2243D813A00072563 /* less_float.play */,
+				BF8A7AA3243D816500072563 /* greater.play */,
+				BF8A7AA4243D817C00072563 /* greater_float.play */,
 				BFC34C3123FD262F0086F9EE /* call.play */,
 				BFC34C3423FD27B60086F9EE /* var.play */,
 				BFC34C3523FD27FB0086F9EE /* var_init.play */,

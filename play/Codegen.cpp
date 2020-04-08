@@ -63,48 +63,56 @@ Value *BinaryExprAST::codegen() {
     auto L = LHS->codegen();
     auto R = RHS->codegen();
     if (!L || !R) {
-        LogError("BinaryExpr codgen error.");
-        return nullptr;
+        return LogErrorV("BinaryExpr codgen error.");
     }
 
     switch (Op) {
         case tok_add:
-            if (L->getType()->isFloatTy() || L->getType()->isFloatTy())
+            if (L->getType()->isFloatTy() && L->getType()->isFloatTy())
                 return getBuilder()->CreateFAdd(L, R, "addtmp");
-            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
+            else if (L->getType()->isIntegerTy() && R->getType()->isIntegerTy())
                 return getBuilder()->CreateAdd(L, R, "addtmp");
+            else
+                return LogErrorV("Expected same type");
         case tok_sub:
-            if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy())
+            if (L->getType()->isDoubleTy() && L->getType()->isDoubleTy())
                 return getBuilder()->CreateFSub(L, R, "subtmp");
-            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
+            else if (L->getType()->isIntegerTy() && R->getType()->isIntegerTy())
                 return getBuilder()->CreateSub(L, R, "subtmp");
+            else
+                return LogErrorV("Expected same type");
         case tok_mul:
-            if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy())
+            if (L->getType()->isDoubleTy() && L->getType()->isDoubleTy())
                 return getBuilder()->CreateFMul(L, R, "multmp");
-            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy())
+            else if (L->getType()->isIntegerTy() && R->getType()->isIntegerTy())
                 return getBuilder()->CreateMul(L, R, "multmp");
+            else
+                return LogErrorV("Expected same type");
+        case tok_div:
+            if (L->getType()->isDoubleTy() && L->getType()->isDoubleTy())
+                return getBuilder()->CreateFDiv(L, R, "multmp");
+            else if (L->getType()->isIntegerTy() && R->getType()->isIntegerTy())
+                return getBuilder()->CreateSDiv(L, R, "multmp");
+            else
+                return LogErrorV("Expected same type");
         case tok_less:
-            if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy()) {
-                L = getBuilder()->CreateFCmpULT(L, R, "lttmp");
-                return getBuilder()->CreateUIToFP(L, Type::getDoubleTy(getContext()),
-                "booltmp");
+            if (L->getType()->isDoubleTy() && L->getType()->isDoubleTy()) {
+                return getBuilder()->CreateFCmpULT(L, R, "lttmp");
             }
-            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy()) {
+            else if (L->getType()->isIntegerTy() && R->getType()->isIntegerTy()) {
                 return getBuilder()->CreateICmpSLT(L, R, "lttmp");
             }
             else
-                assert(false && "not implemented");
+                return LogErrorV("Expected same type");
         case tok_greater:
-            if (L->getType()->isDoubleTy() || L->getType()->isDoubleTy()) {
-                R = getBuilder()->CreateFCmpUGT(L, R, "gttmp");
-                return getBuilder()->CreateUIToFP(R, Type::getDoubleTy(getContext()),
-                "booltmp");
+            if (L->getType()->isDoubleTy() && L->getType()->isDoubleTy()) {
+                return getBuilder()->CreateFCmpUGT(L, R, "gttmp");
             }
-            else if (L->getType()->isIntegerTy() || R->getType()->isIntegerTy()) {
-                return getBuilder()->CreateICmpSGT(L, R, "gttmp");
+            else if (L->getType()->isIntegerTy() && R->getType()->isIntegerTy()) {
+                return getBuilder()->CreateICmpSGT(R, L, "gttmp");
             }
             else
-                assert(false && "not implemented");
+                return LogErrorV("Expected same type");
         default:
         {
             auto F = TheParser->getFunction(string("binary") + Op);
