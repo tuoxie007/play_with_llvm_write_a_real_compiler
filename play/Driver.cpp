@@ -50,12 +50,8 @@ static int MainLoop() {
     }
 }
 
-int compile(std::string &filename, std::string &src, std::map<string, string> &opts) {
-
-    InitializeNativeTarget();
-    InitializeNativeTargetAsmPrinter();
-    InitializeNativeTargetAsmParser();
-
+int compile(std::string &filename, std::string &src, std::map<string, string> &opts)
+{
     src = string("extern int *malloc(int x);")
           + string("extern void free(int *);")
           + src;
@@ -68,7 +64,7 @@ int compile(std::string &filename, std::string &src, std::map<string, string> &o
 
     MainLoop();
 
-    cout << "### Module Define ###" << endl;
+    cout << "### Module Bitcode ###" << endl;
     TheParser->getModule().print(outs(), nullptr);
 
     LLVMInitializeX86TargetInfo();
