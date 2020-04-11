@@ -247,13 +247,12 @@ Value *IfExprAST::codegen() {
 
     getBuilder()->SetInsertPoint(ThenBlock);
     Then->codegen();
-
     getBuilder()->CreateBr(FiBlock);
 
     getBuilder()->SetInsertPoint(ElseBlock);
     Else->codegen();
-
     getBuilder()->CreateBr(FiBlock);
+
     getBuilder()->SetInsertPoint(FiBlock);
 
     return nullptr;
