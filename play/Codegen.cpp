@@ -240,25 +240,20 @@ Value *IfExprAST::codegen() {
     auto F = getBuilder()->GetInsertBlock()->getParent();
 
     auto ThenBlock = BasicBlock::Create(getContext(), "then", F);
-    auto ElseBlock = BasicBlock::Create(getContext(), "else");
-    auto FiBlock = BasicBlock::Create(getContext(), "fi");
+    auto ElseBlock = BasicBlock::Create(getContext(), "else", F);
+    auto FiBlock = BasicBlock::Create(getContext(), "fi", F);
 
     getBuilder()->CreateCondBr(CondV, ThenBlock, ElseBlock);
 
     getBuilder()->SetInsertPoint(ThenBlock);
-
     Then->codegen();
 
     getBuilder()->CreateBr(FiBlock);
 
-    F->getBasicBlockList().push_back(ElseBlock);
     getBuilder()->SetInsertPoint(ElseBlock);
-
     Else->codegen();
 
     getBuilder()->CreateBr(FiBlock);
-
-    F->getBasicBlockList().push_back(FiBlock);
     getBuilder()->SetInsertPoint(FiBlock);
 
     return nullptr;
