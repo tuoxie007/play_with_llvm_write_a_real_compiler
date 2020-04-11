@@ -241,7 +241,7 @@ Value *IfExprAST::codegen() {
 
     auto ThenBlock = BasicBlock::Create(getContext(), "then", F);
     auto ElseBlock = BasicBlock::Create(getContext(), "else");
-    auto MergeBlock = BasicBlock::Create(getContext(), "fi");
+    auto FiBlock = BasicBlock::Create(getContext(), "fi");
 
     getBuilder()->CreateCondBr(CondV, ThenBlock, ElseBlock);
 
@@ -249,21 +249,17 @@ Value *IfExprAST::codegen() {
 
     Then->codegen();
 
-    getBuilder()->CreateBr(MergeBlock);
-
-    ThenBlock = getBuilder()->GetInsertBlock();
+    getBuilder()->CreateBr(FiBlock);
 
     F->getBasicBlockList().push_back(ElseBlock);
     getBuilder()->SetInsertPoint(ElseBlock);
 
     Else->codegen();
 
-    getBuilder()->CreateBr(MergeBlock);
+    getBuilder()->CreateBr(FiBlock);
 
-    ElseBlock = getBuilder()->GetInsertBlock();
-
-    F->getBasicBlockList().push_back(MergeBlock);
-    getBuilder()->SetInsertPoint(MergeBlock);
+    F->getBasicBlockList().push_back(FiBlock);
+    getBuilder()->SetInsertPoint(FiBlock);
 
     return nullptr;
 
