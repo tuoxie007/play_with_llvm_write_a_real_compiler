@@ -109,7 +109,7 @@ Value *BinaryExprAST::codegen() {
                 return getBuilder()->CreateFCmpUGT(L, R, "gttmp");
             }
             else if (L->getType()->isIntegerTy() && R->getType()->isIntegerTy()) {
-                return getBuilder()->CreateICmpSGT(R, L, "gttmp");
+                return getBuilder()->CreateICmpSGT(L, R, "gttmp");
             }
             else
                 return LogErrorV("Expected same type");

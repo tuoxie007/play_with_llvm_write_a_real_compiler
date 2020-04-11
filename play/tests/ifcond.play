@@ -1,7 +1,7 @@
 
 {
     int x;
-    if (2 < 1)
+    if (x > 0)
         x = 24;
     else
         x = 42;
