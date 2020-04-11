@@ -236,7 +236,6 @@ Value *IfExprAST::codegen() {
     auto CondV = Cond->codegen();
     if (!CondV)
         return nullptr;
-    CondV = getBuilder()->CreateICmpNE(CondV, ConstantInt::get(getContext(), APInt(1, 0)), "ifcond");
 
     auto F = getBuilder()->GetInsertBlock()->getParent();
 
